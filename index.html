@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=256, height=512">
-    <title>報告事項</title>
+    <title>報告事項 - 原色輪替防燒屏版</title>
     <style>
         body {
             width: 256px;
@@ -16,105 +16,137 @@
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
-            overflow: hidden; /* 防止捲軸出現，保持版面乾淨 */
+            overflow: hidden; 
+            box-sizing: border-box;
         }
 
-        /* 定義動畫：標題呼吸燈 */
-        @keyframes breathe {
-            0%, 100% { opacity: 1; text-shadow: 0 0 10px #3FF527; transform: scale(1); }
-            50% { opacity: 0.7; text-shadow: 0 0 2px #3FF527; transform: scale(0.98); }
+        /* --- 1. 防燒屏位移 (保持不變) --- */
+        @keyframes pixelShift {
+            0%, 49.9% { transform: translateY(0); }
+            50%, 99.9% { transform: translateY(-2px); }
+            100% { transform: translateY(0); }
         }
 
-        /* 定義動畫：內容從下方滑入 */
+        /* --- 2. 顏色定義 (只用原有的四種顏色) --- */
+        /* 原始顏色庫：
+           綠色: #3FF527 (標題用)
+           紫紅: #F52776 (Item1用)
+           藍色: #0081F2 (Item2用)
+           黃色: #FFFF00 (Item3用)
+        */
+
+        /* 循環 A：綠 -> 紫紅 -> 藍 (給 H1 和 Item4 用) */
+        @keyframes cycleA {
+            0%, 33.33% { color: #3FF527; }      /* 始：綠 */
+            33.34%, 66.66% { color: #F52776; }  /* 變：紫紅 */
+            66.67%, 100% { color: #0081F2; }    /* 變：藍 */
+        }
+
+        /* 循環 B：紫紅 -> 藍 -> 黃 (給 Item1 用) */
+        @keyframes cycleB {
+            0%, 33.33% { color: #F52776; }      /* 始：紫紅 */
+            33.34%, 66.66% { color: #0081F2; }  /* 變：藍 */
+            66.67%, 100% { color: #FFFF00; }    /* 變：黃 */
+        }
+
+        /* 循環 C：藍 -> 黃 -> 綠 (給 Item2 用) */
+        @keyframes cycleC {
+            0%, 33.33% { color: #0081F2; }      /* 始：藍 */
+            33.34%, 66.66% { color: #FFFF00; }  /* 變：黃 */
+            66.67%, 100% { color: #3FF527; }    /* 變：綠 */
+        }
+
+        /* 循環 D：黃 -> 綠 -> 紫紅 (給 Item3 用) */
+        @keyframes cycleD {
+            0%, 33.33% { color: #FFFF00; }      /* 始：黃 */
+            33.34%, 66.66% { color: #3FF527; }  /* 變：綠 */
+            66.67%, 100% { color: #F52776; }    /* 變：紫紅 */
+        }
+
+        /* --- 3. 其他視覺特效 --- */
         @keyframes slideUpFade {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        /* 定義動畫：分隔線閃爍 */
+        @keyframes breathe {
+            0%, 100% { opacity: 1; text-shadow: 0 0 10px currentColor; transform: scale(1); }
+            50% { opacity: 0.7; text-shadow: 0 0 2px currentColor; transform: scale(0.98); }
+        }
+
         @keyframes blink {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.3; }
         }
 
+        /* --- 樣式設定 --- */
+        .content-wrapper {
+            width: 100%;
+            animation: pixelShift 60s infinite step-end;
+        }
+
+        p {
+            margin: 0;
+            /* text-shadow 使用 currentColor，所以光暈會跟著變色 */
+            text-shadow: 0 0 2px currentColor; 
+        }
+
         h1 {
-            color: #3FF527;
             font-size: 24px;
             margin: 0;
             line-height: 1.1;
-            /* 應用呼吸動畫 */
-            animation: breathe 2s infinite ease-in-out;
-        }
-
-        /* 通用文字發光設定，模擬LED質感 */
-        p {
-            margin: 0;
-            /* 應用滑入動畫，預設為隱藏直到動畫開始 */
-            animation: slideUpFade 0.6s ease-out both;
-            text-shadow: 0 0 2px currentColor; /* 讓文字帶有自身顏色的微光 */
-        }
-
-        .item1 {
-            color: #F52776;
-            font-size: 17px;
-            line-height: 1.4;
-            animation-delay: 0.2s; /* 延遲出現 */
-        }
-
-        .item2 {
-            color: #0081F2;
-            font-size: 17px;
-            line-height: 1.4;
-            animation-delay: 0.4s;
-        }
-
-        .item3 {
-            color: #FFFF00;
-            font-size: 17px;
-            line-height: 1.4;
-            animation-delay: 0.6s;
-        }
-
-        .item4 {
-            color: #00ff48;
-            font-size: 14px;
-            line-height: 1.4;
-            animation-delay: 0.8s;
+            /* 呼吸燈 + 顏色循環A */
+            animation: breathe 2s infinite ease-in-out, cycleA 60s infinite step-end;
         }
 
         .divider {
             color: #FFFFFF;
             font-size: 17px;
             line-height: 1.7;
-            /* 分隔線單獨使用閃爍動畫 */
             animation: blink 3s infinite;
-            letter-spacing: -2px; /* 讓虛線緊密一點，更有質感 */
+            letter-spacing: -2px;
         }
-        
-        /* 針對每一個段落增加微小的延遲，產生流水般的入場感 */
-        p:nth-child(1) { animation-delay: 0.1s; }
-        p:nth-child(2) { animation-delay: 0.2s; }
-        p:nth-child(3) { animation-delay: 0.3s; }
-        p:nth-child(4) { animation-delay: 0.4s; }
-        p:nth-child(5) { animation-delay: 0.5s; }
-        p:nth-child(6) { animation-delay: 0.6s; }
-        p:nth-child(7) { animation-delay: 0.7s; }
-        p:nth-child(8) { animation-delay: 0.8s; }
-        p:nth-child(9) { animation-delay: 0.9s; }
-        p:nth-child(10) { animation-delay: 1.0s; }
-        /* 後面的項目依此類推 */
 
+        .item1 {
+            font-size: 17px;
+            line-height: 1.4;
+            /* 進場 + 顏色循環B */
+            animation: slideUpFade 0.6s ease-out both, cycleB 60s infinite step-end;
+            animation-delay: 0.2s;
+        }
+
+        .item2 {
+            font-size: 17px;
+            line-height: 1.4;
+            /* 進場 + 顏色循環C */
+            animation: slideUpFade 0.6s ease-out both, cycleC 60s infinite step-end;
+            animation-delay: 0.4s;
+        }
+
+        .item3 {
+            font-size: 17px;
+            line-height: 1.4;
+            /* 進場 + 顏色循環D */
+            animation: slideUpFade 0.6s ease-out both, cycleD 60s infinite step-end;
+            animation-delay: 0.6s;
+        }
+
+        .item4 {
+            font-size: 14px;
+            line-height: 1.4;
+            /* 進場 + 顏色循環A (與標題同組，形成呼應) */
+            animation: slideUpFade 0.6s ease-out both, cycleA 60s infinite step-end;
+            animation-delay: 0.8s;
+        }
+
+        /* 確保內容依序進場 */
+        .content-wrapper p:nth-child(1) { animation-delay: 0.1s; }
     </style>
 </head>
 <body>
-    <h1>注意事項</h1>
-    <p class="divider">---------------------------------------------</p>
+    <div class="content-wrapper">
+        <h1>注意事項</h1>
+   <p class="divider">---------------------------------------------</p>
     <p class="item1">  校服商將於12月3日到校
     <p class="item1">  如學生未領取冬季校服
     <p class="item1">  請家長或學生帶備
@@ -139,10 +171,8 @@
     <p class="item4"> 3. 放學時間下午12:50</p>
     <p class="item4"> 4. 託管班放學時間下午4:00</p>
     <p class="item4"> 5. 校園開放至下午5:30</p>
-    
-    <p class="item4" style="height: 20px;"></p>
+        
+        <p class="item4" style="height: 20px;"></p>
+    </div>
 </body>
 </html>
-
-
-
