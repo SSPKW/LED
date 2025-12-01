@@ -9,140 +9,137 @@
             width: 256px;
             height: 512px;
             margin: 0;
-            padding: 10px 10px 10px 10px; /* 頂部、右、底、左 padding */
+            padding: 10px;
             font-family: Arial, sans-serif;
             text-align: left;
-            background-color: #000000; /* 純黑色背景 */
+            background-color: #000000;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start; /* 文字靠頂部 */
+            justify-content: flex-start;
+            overflow: hidden; /* 防止捲軸出現，保持版面乾淨 */
         }
+
+        /* 定義動畫：標題呼吸燈 */
+        @keyframes breathe {
+            0%, 100% { opacity: 1; text-shadow: 0 0 10px #3FF527; transform: scale(1); }
+            50% { opacity: 0.7; text-shadow: 0 0 2px #3FF527; transform: scale(0.98); }
+        }
+
+        /* 定義動畫：內容從下方滑入 */
+        @keyframes slideUpFade {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 定義動畫：分隔線閃爍 */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
         h1 {
-            color: #3FF527; /* 鮮綠色 */
-            font-size: 24px; /* 標題文字大小 */
-            margin: 0; /* 移除標題預設外邊距 */
-            line-height: 1.1; /* 行距減少50% */
+            color: #3FF527;
+            font-size: 24px;
+            margin: 0;
+            line-height: 1.1;
+            /* 應用呼吸動畫 */
+            animation: breathe 2s infinite ease-in-out;
         }
+
+        /* 通用文字發光設定，模擬LED質感 */
+        p {
+            margin: 0;
+            /* 應用滑入動畫，預設為隱藏直到動畫開始 */
+            animation: slideUpFade 0.6s ease-out both;
+            text-shadow: 0 0 2px currentColor; /* 讓文字帶有自身顏色的微光 */
+        }
+
         .item1 {
-            color: #F52776; /* 鮮紫色 */
-            font-size: 17px; /* 第一項文字大小 */
-            margin: 0; /* 移除外邊距 */
-            line-height: 1.4; /* 行距減少50% */
+            color: #F52776;
+            font-size: 17px;
+            line-height: 1.4;
+            animation-delay: 0.2s; /* 延遲出現 */
         }
+
         .item2 {
-            color: #0081F2; /* 鮮橙色 */
-            font-size: 17px; /* 第二項文字大小 */
-            margin: 0; /* 移除外邊距 */
-            line-height: 1.4; /* 行距減少50% */
+            color: #0081F2;
+            font-size: 17px;
+            line-height: 1.4;
+            animation-delay: 0.4s;
         }
+
         .item3 {
-            color: #FFFF00; /* 鮮黃色 */
-            font-size: 17px; /* 第三項文字大小 */
-            margin: 0; /* 移除外邊距 */
-            line-height: 1.4; /* 行距減少50% */
+            color: #FFFF00;
+            font-size: 17px;
+            line-height: 1.4;
+            animation-delay: 0.6s;
         }
-                .item4 {
-            color: #00ff48; /* 鮮綠色 */
-            font-size: 14px; /* 第三項文字大小 */
-            margin: 0; /* 移除外邊距 */
-            line-height: 1.4; /* 行距減少50% */
+
+        .item4 {
+            color: #00ff48;
+            font-size: 14px;
+            line-height: 1.4;
+            animation-delay: 0.8s;
         }
+
         .divider {
-            color: #FFFFFF; /* 白色分隔線 */
-            font-size: 17px; /* 分隔線文字大小 */
-            margin: 0; /* 移除外邊距 */
-            line-height: 1.7; /* 行距減少50% */
+            color: #FFFFFF;
+            font-size: 17px;
+            line-height: 1.7;
+            /* 分隔線單獨使用閃爍動畫 */
+            animation: blink 3s infinite;
+            letter-spacing: -2px; /* 讓虛線緊密一點，更有質感 */
         }
+        
+        /* 針對每一個段落增加微小的延遲，產生流水般的入場感 */
+        p:nth-child(1) { animation-delay: 0.1s; }
+        p:nth-child(2) { animation-delay: 0.2s; }
+        p:nth-child(3) { animation-delay: 0.3s; }
+        p:nth-child(4) { animation-delay: 0.4s; }
+        p:nth-child(5) { animation-delay: 0.5s; }
+        p:nth-child(6) { animation-delay: 0.6s; }
+        p:nth-child(7) { animation-delay: 0.7s; }
+        p:nth-child(8) { animation-delay: 0.8s; }
+        p:nth-child(9) { animation-delay: 0.9s; }
+        p:nth-child(10) { animation-delay: 1.0s; }
+        /* 後面的項目依此類推 */
+
     </style>
 </head>
 <body>
-  <h1>注意事項</h1>
+    <h1>注意事項</h1>
     <p class="divider">---------------------------------------------</p>
+    
     <p class="item1">  新來港適應班(免費)</p>
     <p class="item1">  逢星期二、四 3:30-4:30</p> 
     
     <p class="divider">---------------------------------------------</p>
-    <p class="item2"> </p>
+    
     <p class="item2"> 區本計劃</p>
     <p class="item2"> 放學後功課輔導班(免費)</p>
     <p class="item2"> 逢星期二、四、五 3:30-5:00  </p>
-    <p class="item2"> </p>
+    
     <p class="divider">---------------------------------------------</p>
+    
     <p class="item3"> 放學後託管班(免費) </p>
     <p class="item3"> 11月26日至12月2日</p>
     <p class="item3"> 下午4:00放學</p>
-    <p class="item3">   </p>
-    <p class="item3">  </p>
+    
     <p class="divider">---------------------------------------------</p>
+    
     <p class="item4">  11月26日至12月2日</p>
     <p class="item4"> 1. 二至六年級考試</p>
     <p class="item4"> 2. 一年級半天上課</p>
     <p class="item4"> 3. 放學時間下午12:50</p>
     <p class="item4"> 4. 託管班放學時間下午4:00</p>
     <p class="item4"> 5. 校園開放至下午5:30</p>
-    <p class="item4"> </p>
-    <p class="item4">  </p>
-        <p class="item4"> </p>
-        <p class="item4">    </p>
-        <p class="item4">    </p>
+    
+    <p class="item4" style="height: 20px;"></p>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
