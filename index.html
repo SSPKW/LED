@@ -27,40 +27,29 @@
             100% { transform: translateY(0); }
         }
 
-        /* --- 2. 顏色定義 (只用原有的四種顏色) --- */
-        /* 原始顏色庫：
-           綠色: #3FF527 (標題用)
-           紫紅: #F52776 (Item1用)
-           藍色: #0081F2 (Item2用)
-           黃色: #FFFF00 (Item3用)
-        */
-
-        /* 循環 A：綠 -> 紫紅 -> 藍 (給 H1 和 Item4 用) */
+        /* --- 2. 顏色定義 (保持不變) --- */
         @keyframes cycleA {
-            0%, 33.33% { color: #3FF527; }      /* 始：綠 */
-            33.34%, 66.66% { color: #F52776; }  /* 變：紫紅 */
-            66.67%, 100% { color: #0081F2; }    /* 變：藍 */
+            0%, 33.33% { color: #3FF527; }      
+            33.34%, 66.66% { color: #F52776; }  
+            66.67%, 100% { color: #0081F2; }    
         }
 
-        /* 循環 B：紫紅 -> 藍 -> 黃 (給 Item1 用) */
         @keyframes cycleB {
-            0%, 33.33% { color: #F52776; }      /* 始：紫紅 */
-            33.34%, 66.66% { color: #0081F2; }  /* 變：藍 */
-            66.67%, 100% { color: #FFFF00; }    /* 變：黃 */
+            0%, 33.33% { color: #F52776; }      
+            33.34%, 66.66% { color: #0081F2; }  
+            66.67%, 100% { color: #FFFF00; }    
         }
 
-        /* 循環 C：藍 -> 黃 -> 綠 (給 Item2 用) */
         @keyframes cycleC {
-            0%, 33.33% { color: #0081F2; }      /* 始：藍 */
-            33.34%, 66.66% { color: #FFFF00; }  /* 變：黃 */
-            66.67%, 100% { color: #3FF527; }    /* 變：綠 */
+            0%, 33.33% { color: #0081F2; }      
+            33.34%, 66.66% { color: #FFFF00; }  
+            66.67%, 100% { color: #3FF527; }    
         }
 
-        /* 循環 D：黃 -> 綠 -> 紫紅 (給 Item3 用) */
         @keyframes cycleD {
-            0%, 33.33% { color: #FFFF00; }      /* 始：黃 */
-            33.34%, 66.66% { color: #3FF527; }  /* 變：綠 */
-            66.67%, 100% { color: #F52776; }    /* 變：紫紅 */
+            0%, 33.33% { color: #FFFF00; }      
+            33.34%, 66.66% { color: #3FF527; }  
+            66.67%, 100% { color: #F52776; }    
         }
 
         /* --- 3. 其他視覺特效 --- */
@@ -87,67 +76,94 @@
 
         p {
             margin: 0;
-            /* text-shadow 使用 currentColor，所以光暈會跟著變色 */
             text-shadow: 0 0 2px currentColor; 
         }
 
         h1 {
             font-size: 24px;
             margin: 0;
-            line-height: 1.1;
-            text-align: center; /* --- 修改處：設定標題置中 --- */
-            /* 呼吸燈 + 顏色循環A */
+            /* 標題行高微調更緊湊 */
+            line-height: 1.0; 
+            text-align: center;
             animation: breathe 2s infinite ease-in-out, cycleA 60s infinite step-end;
+            /* 標題下方稍微加一點點距離，避免黏在分隔線上 */
+            padding-bottom: 5px; 
         }
 
         .divider {
             color: #FFFFFF;
             font-size: 17px;
-            line-height: 1.7;
+            /* 修改處：大幅減少分隔線的行高 */
+            line-height: 1.0; 
             animation: blink 3s infinite;
             letter-spacing: -2px;
         }
 
         .item1 {
             font-size: 17px;
-            line-height: 1.4;
-            /* 進場 + 顏色循環B */
+            /* 修改處：減少行距 */
+            line-height: 1.15; 
             animation: slideUpFade 0.6s ease-out both, cycleB 60s infinite step-end;
             animation-delay: 0.2s;
         }
 
         .item2 {
             font-size: 17px;
-            line-height: 1.4;
-            /* 進場 + 顏色循環C */
+            /* 修改處：減少行距 */
+            line-height: 1.15; 
             animation: slideUpFade 0.6s ease-out both, cycleC 60s infinite step-end;
             animation-delay: 0.4s;
         }
 
         .item3 {
             font-size: 17px;
-            line-height: 1.4;
-            /* 進場 + 顏色循環D */
+            /* 修改處：減少行距 */
+            line-height: 1.15; 
             animation: slideUpFade 0.6s ease-out both, cycleD 60s infinite step-end;
             animation-delay: 0.6s;
         }
 
         .item4 {
             font-size: 14px;
-            line-height: 1.4;
-            /* 進場 + 顏色循環A (與標題同組，形成呼應) */
+            /* 修改處：減少行距 */
+            line-height: 1.15; 
             animation: slideUpFade 0.6s ease-out both, cycleA 60s infinite step-end;
             animation-delay: 0.8s;
         }
 
-        /* 確保內容依序進場 */
         .content-wrapper p:nth-child(1) { animation-delay: 0.1s; }
     </style>
-
-
-
-
-
-
-
-
+</head>
+<body>
+    <div class="content-wrapper">
+        <h1>注意事項</h1>
+        <p class="divider">---------------------------------------------</p>
+        <p class="item1">  
+        <p class="item1">  
+        <p class="item1">  
+        <p class="item1"> 
+        <p class="item1"> 
+        <p class="divider">---------------------------------------------</p>
+        <p class="item2"> </p>
+        <p class="item2"> 放學後功課輔導班(免費)</p>
+        <p class="item2"> 本周起暫停，6/1/26（二）</p>
+        <p class="item2"> 恢復上課</p>
+        <p class="divider">---------------------------------------------</p>
+        
+        <p class="item3"> 放學後託管班(免費) </p>
+        <p class="item3"> 逢星期一、二、四、五</p>
+        <p class="item3"> (3:30-6:15p.m.)</p>
+        <p class="item3"> 星期三(12:50-6:15p.m.)</p>
+        <p class="divider">---------------------------------------------</p>
+        
+        <p class="item4"> </p>
+        <p class="item4"> </p>
+        <p class="item4"> </p>
+        <p class="item4"> </p>
+        <p class="item4"> </p>
+        <p class="item4"> </p>
+        
+        <p class="item4" style="height: 20px;"></p>
+    </div>
+</body>
+</html>
