@@ -20,14 +20,14 @@
             box-sizing: border-box;
         }
 
-        /* --- 1. 防燒屏位移 (保持不變) --- */
+        /* --- 1. 防燒屏位移 --- */
         @keyframes pixelShift {
             0%, 49.9% { transform: translateY(0); }
             50%, 99.9% { transform: translateY(-2px); }
             100% { transform: translateY(0); }
         }
 
-        /* --- 2. 顏色定義 (保持不變) --- */
+        /* --- 2. 顏色定義 --- */
         @keyframes cycleA {
             0%, 33.33% { color: #3FF527; }      
             33.34%, 66.66% { color: #F52776; }  
@@ -82,26 +82,27 @@
         h1 {
             font-size: 24px;
             margin: 0;
-            /* 標題行高微調更緊湊 */
             line-height: 1.0; 
             text-align: center;
             animation: breathe 2s infinite ease-in-out, cycleA 60s infinite step-end;
-            /* 標題下方稍微加一點點距離，避免黏在分隔線上 */
             padding-bottom: 5px; 
         }
 
         .divider {
             color: #FFFFFF;
             font-size: 17px;
-            /* 修改處：大幅減少分隔線的行高 */
             line-height: 1.0; 
             animation: blink 3s infinite;
             letter-spacing: -2px;
+            
+            /* --- 修改處：強制不換行並裁切多餘部分，確保線條填滿 --- */
+            white-space: nowrap;
+            overflow: hidden;
+            width: 100%;
         }
 
         .item1 {
             font-size: 17px;
-            /* 修改處：減少行距 */
             line-height: 1.15; 
             animation: slideUpFade 0.6s ease-out both, cycleB 60s infinite step-end;
             animation-delay: 0.2s;
@@ -109,7 +110,6 @@
 
         .item2 {
             font-size: 17px;
-            /* 修改處：減少行距 */
             line-height: 1.15; 
             animation: slideUpFade 0.6s ease-out both, cycleC 60s infinite step-end;
             animation-delay: 0.4s;
@@ -117,7 +117,6 @@
 
         .item3 {
             font-size: 17px;
-            /* 修改處：減少行距 */
             line-height: 1.15; 
             animation: slideUpFade 0.6s ease-out both, cycleD 60s infinite step-end;
             animation-delay: 0.6s;
@@ -125,7 +124,6 @@
 
         .item4 {
             font-size: 14px;
-            /* 修改處：減少行距 */
             line-height: 1.15; 
             animation: slideUpFade 0.6s ease-out both, cycleA 60s infinite step-end;
             animation-delay: 0.8s;
@@ -137,24 +135,24 @@
 <body>
     <div class="content-wrapper">
         <h1>注意事項</h1>
-        <p class="divider">--------------------------------------------------------------------</p>
+        <p class="divider">------------------------------------------------------------</p>
         <p class="item1">  
         <p class="item1">  
         <p class="item1">  
         <p class="item1"> 
         <p class="item1"> 
-        <p class="divider">--------------------------------------------------------------------</p>
+        <p class="divider">------------------------------------------------------------</p>
         <p class="item2"> </p>
         <p class="item2"> 放學後功課輔導班(免費)</p>
         <p class="item2"> 本周起暫停，6/1/26（二）</p>
         <p class="item2"> 恢復上課</p>
-        <p class="divider">--------------------------------------------------------------------</p>
+        <p class="divider">------------------------------------------------------------</p>
         
         <p class="item3"> 放學後託管班(免費) </p>
         <p class="item3"> 逢星期一、二、四、五</p>
         <p class="item3"> (3:30-6:15p.m.)</p>
         <p class="item3"> 星期三(12:50-6:15p.m.)</p>
-        <p class="divider">--------------------------------------------------------------------</p>
+        <p class="divider">------------------------------------------------------------</p>
         
         <p class="item4"> </p>
         <p class="item4"> </p>
@@ -167,4 +165,3 @@
     </div>
 </body>
 </html>
-
