@@ -1,0 +1,1896 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>深水埗大探索 - Sham Shui Po Motorbike Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+TC:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #08090c;
+            font-family: 'Noto Sans TC', 'Rajdhani', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        .gta-font {
+            font-family: 'Press Start 2P', monospace;
+        }
+
+        .hud-panel {
+            background: rgba(15, 23, 42, 0.88);
+            border: 2px solid #334155;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), inset 0 0 12px rgba(56, 189, 248, 0.15);
+            backdrop-filter: blur(6px);
+        }
+
+        .scanlines {
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.22) 50%
+            ), linear-gradient(
+                90deg,
+                rgba(255, 0, 0, 0.03),
+                rgba(0, 255, 0, 0.01),
+                rgba(0, 0, 255, 0.03)
+            );
+            background-size: 100% 3px, 6px 100%;
+            pointer-events: none;
+        }
+
+        .touch-btn {
+            background: rgba(30, 41, 59, 0.75);
+            border: 2px solid rgba(255, 255, 255, 0.25);
+        }
+        .touch-btn:active {
+            background: rgba(234, 179, 8, 0.7);
+            transform: scale(0.94);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body class="relative w-full h-full overflow-hidden bg-gray-950 text-white select-none">
+
+    <!-- Main Game Canvas Container -->
+    <div id="canvas-container" class="absolute inset-0 w-full h-full z-0">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- Retro CRT Scanline Visual Overlay -->
+    <div class="scanlines absolute inset-0 z-10"></div>
+
+    <!-- Top GTA/SSP HUD Banner -->
+    <div class="absolute top-3 left-3 right-3 z-20 flex justify-between items-start pointer-events-none">
+        
+        <!-- Left Stats: Collected Books (圖書/書本), Hearts (8 機會), Speed -->
+        <div class="hud-panel p-3 rounded-xl flex flex-col gap-1 text-yellow-400 min-w-[210px]">
+            <div class="flex items-center justify-between gap-2 border-b border-slate-700/80 pb-1.5">
+                <span class="text-xs text-amber-300 font-extrabold tracking-wider flex items-center gap-1">
+                    📖 收集書本:
+                </span>
+                <span id="hud-books" class="gta-font text-base md:text-lg text-emerald-400 drop-shadow">000 本</span>
+            </div>
+            <div class="flex items-center justify-between gap-2 mt-1">
+                <div class="flex items-center gap-0.5" id="hud-health">
+                    <!-- 8 Hearts rendered dynamically for 機會 -->
+                </div>
+                <span class="text-xs text-cyan-300 font-extrabold bg-cyan-950/80 px-2 py-0.5 rounded-md border border-cyan-600/50" id="hud-speed">0 KM/H</span>
+            </div>
+        </div>
+
+        <!-- Center: Current SSP Street Banner & Wanted Stars & Toast Messages -->
+        <div class="flex flex-col items-center">
+            <!-- Current Street Floating Display -->
+            <div id="street-display" class="bg-slate-900/90 text-amber-300 font-black text-xs md:text-sm px-4 py-1 rounded-full border border-amber-500/60 shadow-lg mb-1 flex items-center gap-1.5">
+                <span class="animate-ping w-2 h-2 rounded-full bg-amber-400 inline-block"></span>
+                <span id="street-name-text">📍 深水埗街道探索中...</span>
+            </div>
+
+            <div id="hud-wanted" class="flex gap-1 bg-black/70 px-3 py-1.5 rounded-lg border border-yellow-500/40">
+                <span class="star text-lg text-gray-600">★</span>
+                <span class="star text-lg text-gray-600">★</span>
+                <span class="star text-lg text-gray-600">★</span>
+                <span class="star text-lg text-gray-600">★</span>
+                <span class="star text-lg text-gray-600">★</span>
+            </div>
+
+            <div id="toast-msg" class="mt-2 text-xs md:text-sm font-bold bg-amber-600/90 text-white px-3.5 py-1 rounded-full border border-amber-300 shadow-xl transition-all opacity-0 transform -translate-y-2">
+                歡迎來到【深水埗大探索】！
+            </div>
+        </div>
+
+        <!-- Right Side: Title & Radio Controls -->
+        <div class="hud-panel p-3 rounded-xl flex flex-col items-end gap-1">
+            <div class="text-xs text-yellow-400 font-black tracking-wider flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+                深水埗大探索
+            </div>
+            <div id="hud-radio" class="gta-font text-[10px] md:text-xs text-cyan-300">HEAD RADIO 98.3</div>
+            <div class="mt-1 flex gap-1.5 pointer-events-auto">
+                <button id="btn-radio-prev" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded-md border border-slate-600 text-cyan-300 font-bold">◄</button>
+                <button id="btn-radio-next" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded-md border border-slate-600 text-cyan-300 font-bold">►</button>
+                <button id="btn-audio-toggle" class="px-2 py-1 bg-amber-600 hover:bg-amber-500 text-xs rounded-md border border-amber-400 text-black font-extrabold">🔊 音效</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Left Information Panel & Credit -->
+    <div class="absolute bottom-4 left-4 z-20 hidden md:flex flex-col gap-1.5 hud-panel p-3 rounded-xl text-xs text-gray-200 max-w-xs">
+        <div class="flex justify-between items-center border-b border-gray-700 pb-1.5 mb-0.5 gap-2">
+            <span class="font-bold text-yellow-400 text-xs">🏫 深水埗大探索</span>
+            <span class="text-yellow-300 font-bold text-[11px] bg-yellow-950/80 px-2 py-0.5 rounded border border-yellow-600/50">由陳主任設計</span>
+        </div>
+        <div class="text-emerald-400 font-bold">🏫 駛近深水埔街坊福利會小學可補回 3 個機會及令所有警車停止行駛 30 秒（每 1 分鐘限制 1 次）！</div>
+    </div>
+
+    <!-- Mobile Credit Badge for Left Bottom -->
+    <div class="absolute bottom-4 left-4 z-20 md:hidden hud-panel px-3 py-1.5 rounded-lg border border-yellow-500/50 flex flex-col gap-1">
+        <span class="text-yellow-400 font-bold text-xs">由陳主任設計</span>
+        <span class="text-emerald-400 font-bold text-[10px]">🏫 駛近深水埔街坊福利會小學可補 3 機會及令警車停駛 30 秒 (每 1 分鐘 1 次)！</span>
+    </div>
+
+    <!-- Bottom Right Radar Mini-Map -->
+    <div class="absolute bottom-4 right-4 z-20 hud-panel p-1 rounded-full shadow-2xl border-2 border-amber-500/60">
+        <canvas id="radarCanvas" width="130" height="130" class="rounded-full bg-slate-950"></canvas>
+    </div>
+
+    <!-- Bottom Center Prominent Gas Pedal Button -->
+    <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-30 pointer-events-auto flex flex-col items-center select-none">
+        <button id="btn-gas-center" class="w-36 h-16 md:w-44 md:h-20 bg-gradient-to-t from-emerald-700 via-emerald-600 to-green-500 hover:from-emerald-600 hover:to-green-400 text-white font-extrabold rounded-2xl border-4 border-green-300/80 shadow-2xl flex flex-col items-center justify-center transition transform active:scale-95 touch-none cursor-pointer">
+            <span class="text-xs md:text-sm tracking-wider text-green-100 font-extrabold">⚡ 按住加速前進</span>
+            <span class="gta-font text-sm md:text-lg text-yellow-300 drop-shadow">GAS 油門</span>
+        </button>
+        <span class="text-[10px] md:text-xs text-gray-300 mt-1 font-bold bg-black/70 px-2.5 py-0.5 rounded-full border border-gray-700">鬆開自動緩慢減速</span>
+    </div>
+
+    <!-- Mobile On-Screen Touch Controls -->
+    <div id="touch-controls" class="absolute inset-0 z-30 pointer-events-none md:hidden flex justify-between p-4 items-end">
+        <div class="flex gap-3 pointer-events-auto mb-16">
+            <button id="t-left" class="touch-btn w-16 h-16 rounded-full flex items-center justify-center text-2xl text-white font-bold shadow-lg">◄</button>
+            <button id="t-right" class="touch-btn w-16 h-16 rounded-full flex items-center justify-center text-2xl text-white font-bold shadow-lg">►</button>
+        </div>
+
+        <div class="flex flex-col gap-2 items-end pointer-events-auto mb-16">
+            <div class="flex gap-2">
+                <button id="t-nitro" class="touch-btn bg-amber-600/80 w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold text-yellow-200">NOS</button>
+                <button id="t-horn" class="touch-btn bg-cyan-700/80 w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold text-white">📣</button>
+            </div>
+            <div class="flex gap-3">
+                <button id="t-brake" class="touch-btn bg-red-800/80 w-16 h-16 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg">BRAKE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Start Modal -->
+    <div id="start-modal" class="absolute inset-0 z-40 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+        <div class="max-w-md w-full bg-slate-900 border-2 border-yellow-500/80 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4">
+            <h1 class="gta-font text-xl md:text-2xl text-yellow-400 tracking-wider drop-shadow-md">深水埗大探索</h1>
+            <div class="text-xs font-bold text-yellow-400 bg-yellow-950/90 px-3 py-1 rounded border border-yellow-600/60">由陳主任設計</div>
+            <p class="text-sm text-gray-200 leading-relaxed">
+                歡迎駕駛重型電單車，穿梭於真實重現的香港<b>深水埗街道</b>（長沙灣道、福榮街、鴨寮街、楓樹街遊樂場足球場、深水埔街坊福利會小學等）！
+            </p>
+
+            <button id="btn-start" class="w-full py-3.5 bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-600 hover:from-yellow-400 hover:to-amber-500 text-black font-extrabold gta-font text-sm rounded-xl shadow-xl transform transition active:scale-95 cursor-pointer">
+                START EXPLORING (開始探索)
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const radarCanvas = document.getElementById('radarCanvas');
+        const radarCtx = radarCanvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function drawRoundRect(context, x, y, width, height, radius) {
+            context.beginPath();
+            if (typeof context.roundRect === 'function') {
+                context.roundRect(x, y, width, height, radius);
+            } else {
+                context.rect(x, y, width, height);
+            }
+        }
+
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.engineOsc = null;
+                this.engineGain = null;
+                this.isAudioStarted = false;
+                this.radioIndex = 0;
+                this.radioStations = [
+                    { name: "HEAD RADIO 98.3", tempo: 128, baseFreq: 110 },
+                    { name: "K-JAH RETRO DUB", tempo: 90, baseFreq: 65 },
+                    { name: "ZAIBATSU SYNTHWAVE", tempo: 135, baseFreq: 140 },
+                    { name: "RADIO OFF", tempo: 0, baseFreq: 0 }
+                ];
+                this.radioTimer = null;
+            }
+
+            init() {
+                if (this.isAudioStarted) return;
+                try {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+
+                    this.engineOsc = this.ctx.createOscillator();
+                    this.engineGain = this.ctx.createGain();
+
+                    this.engineOsc.type = 'sawtooth';
+                    this.engineOsc.frequency.setValueAtTime(60, this.ctx.currentTime);
+                    this.engineGain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(450, this.ctx.currentTime);
+
+                    this.engineOsc.connect(filter);
+                    filter.connect(this.engineGain);
+                    this.engineGain.connect(this.ctx.destination);
+
+                    this.engineOsc.start();
+                    this.isAudioStarted = true;
+                    this.startRadioBeat();
+                } catch(e) {
+                    console.log("Audio Context Error:", e);
+                }
+            }
+
+            updateEngineSound(speedRatio, isAccelerating) {
+                if (!this.isAudioStarted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const targetFreq = 55 + speedRatio * 200 + (isAccelerating ? 35 : 0);
+                const targetGain = 0.02 + speedRatio * 0.07 + (isAccelerating ? 0.03 : 0);
+
+                this.engineOsc.frequency.setTargetAtTime(targetFreq, now, 0.05);
+                this.engineGain.gain.setTargetAtTime(targetGain, now, 0.08);
+            }
+
+            playCrash() {
+                if (!this.isAudioStarted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(140, now);
+                osc.frequency.exponentialRampToValueAtTime(30, now + 0.25);
+
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(now + 0.25);
+            }
+
+            playHorn() {
+                if (!this.isAudioStarted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc1 = this.ctx.createOscillator();
+                const osc2 = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc1.type = 'triangle';
+                osc2.type = 'triangle';
+                osc1.frequency.setValueAtTime(440, now);
+                osc2.frequency.setValueAtTime(554, now);
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc1.start(); osc2.start();
+                osc1.stop(now + 0.4); osc2.stop(now + 0.4);
+            }
+
+            playBookSound() {
+                if (!this.isAudioStarted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.07);
+                osc.frequency.setValueAtTime(783.99, now + 0.14);
+
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(now + 0.3);
+            }
+
+            nextRadio() {
+                this.radioIndex = (this.radioIndex + 1) % this.radioStations.length;
+                this.startRadioBeat();
+                return this.radioStations[this.radioIndex].name;
+            }
+
+            prevRadio() {
+                this.radioIndex = (this.radioIndex - 1 + this.radioStations.length) % this.radioStations.length;
+                this.startRadioBeat();
+                return this.radioStations[this.radioIndex].name;
+            }
+
+            startRadioBeat() {
+                if (this.radioTimer) clearInterval(this.radioTimer);
+                const station = this.radioStations[this.radioIndex];
+                if (station.tempo === 0 || !this.isAudioStarted || !this.ctx) return;
+
+                let beatStep = 0;
+                const interval = (60 / station.tempo) * 1000 / 2;
+
+                this.radioTimer = setInterval(() => {
+                    if (!this.isAudioStarted || !this.ctx) return;
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = beatStep % 2 === 0 ? 'sine' : 'triangle';
+                    const freq = station.baseFreq * (beatStep % 4 === 0 ? 1 : beatStep % 4 === 2 ? 1.5 : 1.25);
+                    osc.frequency.setValueAtTime(freq, now);
+
+                    gain.gain.setValueAtTime(0.03, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(now + 0.12);
+
+                    beatStep++;
+                }, interval);
+            }
+        }
+
+        const audio = new SoundEngine();
+
+        const TILE_SIZE = 120;
+        const MAP_SIZE = 60; // 擴大地圖尺寸以容納更精確的深水埗真實路網
+        const WORLD_BOUNDS = MAP_SIZE * TILE_SIZE;
+
+        const TILE = {
+            ROAD: 0,
+            SIDEWALK: 1,
+            BUILDING: 2,
+            PARK: 3,
+            RAMP: 4,
+            SOCCER_PITCH: 5
+        };
+
+        const cityGrid = [];
+        const buildingsList = [];
+        const bookPickups = [];
+        const stuntRamps = [];
+        const streetLabels = [];
+
+        const bookTypes = [
+            { name: "三國志", emoji: "⚔️" },
+            { name: "西遊記", emoji: "🐵" },
+            { name: "紅樓夢", emoji: "🌹" },
+            { name: "水滸傳", emoji: "🗡️" },
+            { name: "中華生字典", emoji: "📕" },
+            { name: "一國兩制白皮書", emoji: "📜" },
+            { name: "國家安全白皮書", emoji: "🛡️" }
+        ];
+
+        function getRandomBook() {
+            return bookTypes[Math.floor(Math.random() * bookTypes.length)];
+        }
+
+        const mouse = {
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2,
+            activeMode: false
+        };
+
+        function generateShamShuiPoMap() {
+            buildingsList.length = 0;
+            bookPickups.length = 0;
+            stuntRamps.length = 0;
+            streetLabels.length = 0;
+
+            // 建立基於 5-Tile 間距的真實街區網格系統 (包含道路、行人路與建築區)
+            for (let r = 0; r < MAP_SIZE; r++) {
+                cityGrid[r] = [];
+                for (let c = 0; c < MAP_SIZE; c++) {
+                    if (r === 0 || r === MAP_SIZE - 1 || c === 0 || c === MAP_SIZE - 1) {
+                        cityGrid[r][c] = TILE.BUILDING; // 外圍空氣牆
+                    } else if (r % 5 === 0 || c % 5 === 0) {
+                        cityGrid[r][c] = TILE.ROAD; // 道路 (每隔 5 格一條主幹道)
+                    } else if ((r % 5 === 2 || r % 5 === 3) && (c % 5 === 2 || c % 5 === 3)) {
+                        cityGrid[r][c] = TILE.BUILDING; // 2x2 建築物核心區塊
+                    } else {
+                        cityGrid[r][c] = TILE.SIDEWALK; // 包圍建築的行人路
+                    }
+                }
+            }
+
+            // 真實深水埗街道名稱及精確格線坐標配置 (完美對應真實地圖順序)
+            const realStreets = [
+                // 橫向街道 (Horizontal Streets - Y軸)
+                { name: "元州街 Un Chau St", r: 5, isHoriz: true },
+                { name: "福榮街 Fuk Wing St (玩具圖書街)", r: 10, isHoriz: true },
+                { name: "福華街 Fuk Wa St", r: 15, isHoriz: true },
+                { name: "長沙灣道 Cheung Sha Wan Rd", r: 20, isHoriz: true },
+                { name: "鴨寮街 Apliu St (電子街)", r: 25, isHoriz: true },
+                { name: "汝州街 Yu Chau St", r: 30, isHoriz: true },
+                { name: "基隆街 Ki Lung St", r: 35, isHoriz: true },
+                { name: "大南街 Tai Nan St", r: 40, isHoriz: true },
+                { name: "荔枝角道 Lai Chi Kok Rd", r: 45, isHoriz: true },
+                { name: "醫局街 Yee Kuk St", r: 50, isHoriz: true },
+                { name: "海壇街 Hoi Tan St", r: 55, isHoriz: true },
+
+                // 縱向街道 (Vertical Streets - X軸)
+                { name: "欽州街 Yen Chow St", c: 5, isHoriz: false },
+                { name: "桂林街 Kweilin St", c: 10, isHoriz: false },
+                { name: "北河街 Pei Ho St", c: 15, isHoriz: false },
+                { name: "南昌街 Nam Cheong St", c: 20, isHoriz: false },
+                { name: "石硤尾街 Shek Kip Mei St", c: 25, isHoriz: false },
+                { name: "黃竹街 Wong Chuk St", c: 30, isHoriz: false },
+                { name: "楓樹街 Maple St", c: 35, isHoriz: false },
+                { name: "白楊街 Poplar St", c: 40, isHoriz: false },
+                { name: "柏樹街 Cedar St", c: 45, isHoriz: false },
+                { name: "界限街 Boundary St", c: 50, isHoriz: false },
+                { name: "塘尾道 Tong Mi Rd", c: 55, isHoriz: false }
+            ];
+
+            realStreets.forEach(st => {
+                streetLabels.push(st);
+            });
+
+            // 豐富真實深水埗著名大廈與民居地標名單及相配 Emoji
+            const sspBuildingInfo = [
+                { name: "深水埗各界慶典委員會", emoji: "🏮" },
+                { name: "昌新大樓", emoji: "🏢" },
+                { name: "福星大廈", emoji: "🏙️" },
+                { name: "聯昌大樓", emoji: "🏢" },
+                { name: "深崇閣", emoji: "🏬" },
+                { name: "宇宙大廈", emoji: "🚀" },
+                { name: "麗華大廈", emoji: "🏢" },
+                { name: "怡家大樓", emoji: "🏠" },
+                { name: "祥興大樓", emoji: "🏢" },
+                { name: "金華樓", emoji: "✨" },
+                { name: "龍慶堂", emoji: "🐉" },
+                { name: "汝州大廈", emoji: "🏢" },
+                { name: "桂林大廈", emoji: "🏙️" },
+                { name: "欽州大廈", emoji: "🏬" },
+                { name: "太安樓", emoji: "🕊️" },
+                { name: "順利大廈", emoji: "🍀" },
+                { name: "富裕大樓", emoji: "💰" },
+                { name: "華麗大廈", emoji: "💎" },
+                { name: "永明大廈", emoji: "☀️" },
+                { name: "鴻裕大廈", emoji: "🦅" },
+                { name: "寶安大廈", emoji: "🛡️" },
+                { name: "聯興大樓", emoji: "🤝" },
+                { name: "新華大廈", emoji: "🌟" },
+                { name: "德安樓", emoji: "🕊️" },
+                { name: "恒利大廈", emoji: "📈" },
+                { name: "崇明樓", emoji: "🌕" },
+                { name: "慶平大樓", emoji: "🎊" },
+                { name: "萬發大廈", emoji: "🎆" },
+                { name: "興隆大廈", emoji: "🏮" },
+                { name: "建寶大樓", emoji: "💎" },
+                { name: "海峯", emoji: "🌊" },
+                { name: "景怡峯", emoji: "🏔️" },
+                { name: "喜雅", emoji: "🌸" },
+                { name: "喜盈", emoji: "🌺" },
+                { name: "喜韻", emoji: "🎵" },
+                { name: "翠華大廈", emoji: "🍃" },
+                { name: "深水埗郵政局", emoji: "📮" },
+                { name: "嘉頓中心", emoji: "🍞" },
+                { name: "寶血醫院", emoji: "🏥" },
+                { name: "仁業樓", emoji: "🏛️" }
+            ];
+
+            let bIndex = 0;
+
+            // 基於真實坐標分佈地標與普通大廈
+            for (let r = 2; r < MAP_SIZE; r += 5) {
+                for (let c = 2; c < MAP_SIZE; c += 5) {
+                    if (r >= MAP_SIZE - 2 || c >= MAP_SIZE - 2) continue;
+                    
+                    const bx = c * TILE_SIZE;
+                    const by = r * TILE_SIZE;
+                    const bw = 2 * TILE_SIZE;
+                    const bh = 2 * TILE_SIZE;
+                    let isLandmark = false;
+
+                    // 精確配對地圖上的真實建築物位置
+                    if (r === 17 && c === 32) {
+                        // 楓樹街遊樂場 (足球場擴大至 16 格 4x4 街區)
+                        for (let dr = 0; dr < 4; dr++) {
+                            for (let dc = 0; dc < 4; dc++) {
+                                cityGrid[16 + dr][31 + dc] = TILE.SOCCER_PITCH;
+                            }
+                        }
+                        buildingsList.push({ 
+                            x: 31 * TILE_SIZE, 
+                            y: 16 * TILE_SIZE, 
+                            w: 4 * TILE_SIZE, 
+                            h: 4 * TILE_SIZE, 
+                            type: 'soccer_court', 
+                            label: '楓樹街遊樂場' 
+                        });
+                        isLandmark = true;
+                    } else if (r === 22 && c === 32) {
+                        // 深水埔街坊福利會小學 (緊接設於楓樹街遊樂場下方連接)
+                        buildingsList.push({ x: bx, y: by, w: bw, h: bh, type: 'school', color: '#1e3a8a', label: '深水埔街坊福利會小學' });
+                        isLandmark = true;
+                    } else if (r === 32 && c === 37) {
+                        // 龍慶堂
+                        buildingsList.push({ x: bx, y: by, w: bw, h: bh, type: 'landmark', color: '#854d0e', label: '龍慶堂', emoji: '🐉' });
+                        isLandmark = true;
+                    } else if (r === 12 && c === 7) {
+                        // 黃金電腦商場 (福榮街與福華街交界區塊)
+                        buildingsList.push({ x: bx, y: by, w: bw, h: bh, type: 'landmark', color: '#b45309', label: '黃金電腦商場', emoji: '🖥️' });
+                        isLandmark = true;
+                    } else if (r === 12 && c === 12) {
+                        // 高登電腦中心 (鄰接桂林街與北河街)
+                        buildingsList.push({ x: bx, y: by, w: bw, h: bh, type: 'landmark', color: '#0f766e', label: '高登電腦中心', emoji: '💻' });
+                        isLandmark = true;
+                    } else if (r === 17 && c === 27) {
+                        // 石硤尾街休憩花園 (福華街與長沙灣道、石硤尾街與黃竹街交界)
+                        cityGrid[r][c] = TILE.PARK; cityGrid[r+1][c] = TILE.PARK;
+                        cityGrid[r][c+1] = TILE.PARK; cityGrid[r+1][c+1] = TILE.PARK;
+                        buildingsList.push({ x: bx, y: by, w: bw, h: bh, type: 'park', color: '#166534', label: '石硤尾街休憩花園' });
+                        isLandmark = true;
+                    } else if (r === 37 && c === 17) {
+                        // 北河街街市 (基隆街與大南街、北河街與南昌街交界)
+                        buildingsList.push({ x: bx, y: by, w: bw, h: bh, type: 'landmark', color: '#991b1b', label: '北河街街市', emoji: '🍎' });
+                        isLandmark = true;
+                    } else if (r === 47 && c === 7) {
+                        // 西九龍中心 (荔枝角道與醫局街近欽州街)
+                        buildingsList.push({ x: bx, y: by, w: bw, h: bh, type: 'landmark', color: '#4338ca', label: '西九龍中心', emoji: '🎢' });
+                        isLandmark = true;
+                    }
+
+                    // 一般唐樓與民居大廈填充：100% 填上真實建築名與相配 Emoji
+                    if (!isLandmark) {
+                        const item = sspBuildingInfo[bIndex % sspBuildingInfo.length];
+                        bIndex++;
+                        const roofColors = ['#1e1b4b', '#312e81', '#1f2937', '#334155', '#451a03', '#0284c7', '#3f6212'];
+                        
+                        buildingsList.push({
+                            x: bx + 6,
+                            y: by + 6,
+                            w: bw - 12,
+                            h: bh - 12,
+                            type: 'tenement',
+                            color: roofColors[Math.floor(Math.random() * roofColors.length)],
+                            label: item.name, // 全數顯示真實名稱
+                            emoji: item.emoji
+                        });
+                    }
+                }
+            }
+
+            // 在道路上隨機生成飛躍特技跳板
+            for (let r = 2; r < MAP_SIZE - 2; r++) {
+                for (let c = 2; c < MAP_SIZE - 2; c++) {
+                    if (cityGrid[r][c] === TILE.ROAD && Math.random() < 0.05) {
+                        stuntRamps.push({
+                            x: c * TILE_SIZE + TILE_SIZE / 2,
+                            y: r * TILE_SIZE + TILE_SIZE / 2,
+                            size: TILE_SIZE * 0.7
+                        });
+                    }
+                }
+            }
+
+            // 確保地圖同一時間最多存在 15 本書
+            let bookAttempts = 0;
+            const targetBookCount = 15;
+            while (bookPickups.length < targetBookCount && bookAttempts < 3000) {
+                bookAttempts++;
+                const rx = Math.floor(Math.random() * (MAP_SIZE - 4)) + 2;
+                const ry = Math.floor(Math.random() * (MAP_SIZE - 4)) + 2;
+                
+                if (cityGrid[ry][rx] === TILE.BUILDING) continue;
+
+                // 統計 16 格範圍內已存在的書本數量
+                let nearbyCount = 0;
+                for (const b of bookPickups) {
+                    const brx = Math.floor(b.x / TILE_SIZE);
+                    const bry = Math.floor(b.y / TILE_SIZE);
+                    if (Math.hypot(rx - brx, ry - bry) < 16) {
+                        nearbyCount++;
+                    }
+                }
+
+                // 只要 16 格範圍內少於 5 本書即可生成
+                if (nearbyCount < 5) {
+                    const randomBook = getRandomBook();
+                    bookPickups.push({
+                        x: rx * TILE_SIZE + TILE_SIZE / 2,
+                        y: ry * TILE_SIZE + TILE_SIZE / 2,
+                        amount: 1,
+                        title: randomBook.name,
+                        emoji: randomBook.emoji,
+                        active: true,
+                        pulse: Math.random() * Math.PI,
+                        rotAngle: Math.random() * Math.PI,
+                        respawnTime: 0
+                    });
+                }
+            }
+        }
+        generateShamShuiPoMap();
+
+        const player = {
+            x: TILE_SIZE * 10.5, // 桂林街
+            y: TILE_SIZE * 10.5, // 福榮街交界 (起點)
+            angle: 0,
+            speed: 0,
+            maxSpeed: 10.5,
+            reverseMaxSpeed: -3.8,
+            accel: 0.24,
+            decel: 0.1,
+            friction: 0.965,
+            turnSpeed: 0.058,
+            width: 22,
+            length: 44,
+            health: 8,
+            maxHealth: 8,
+            books: 0, // Book Count (圖書本數)
+            nitro: 100,
+            isNitroActive: false,
+            isAirborne: false,
+            jumpZ: 0,
+            jumpVz: 0,
+            leanAngle: 0,
+            lastSchoolHealTime: 0, // 追蹤深水埔街坊福利會小學補血冷卻時間 (30秒)
+            exhaustParticles: []
+        };
+
+        const keys = {
+            forward: false,
+            backward: false,
+            left: false,
+            right: false,
+            nitro: false,
+            drift: false
+        };
+
+        const trafficCars = [];
+        const policeCars = [];
+        let policeFreezeEndTime = 0; // 追蹤警車受學校效果凍結停止行駛的結束時間
+
+        class Helicopter {
+            constructor() {
+                this.active = false;
+                this.x = 0;
+                this.y = 0;
+                this.angle = 0;
+                this.rotorAngle = 0;
+                this.speed = 4.0;
+                this.spotlightAngle = 0;
+            }
+
+            spawn(px, py) {
+                this.active = true;
+                this.x = px + (Math.random() < 0.5 ? -700 : 700);
+                this.y = py + (Math.random() < 0.5 ? -700 : 700);
+            }
+
+            update(targetX, targetY) {
+                if (!this.active) return;
+                this.rotorAngle += 0.5;
+                this.spotlightAngle += 0.035;
+
+                const dx = targetX - this.x;
+                const dy = targetY - this.y;
+                const dist = Math.hypot(dx, dy);
+
+                this.angle = Math.atan2(dy, dx);
+
+                if (dist > 20) {
+                    this.x += Math.cos(this.angle) * Math.min(this.speed, dist * 0.04);
+                    this.y += Math.sin(this.angle) * Math.min(this.speed, dist * 0.04);
+                }
+            }
+
+            drawGroundEffects(ctx) {
+                if (!this.active) return;
+
+                const spotX = this.x + Math.cos(this.spotlightAngle) * 20;
+                const spotY = this.y + Math.sin(this.spotlightAngle) * 20;
+
+                ctx.save();
+                const grad = ctx.createRadialGradient(spotX, spotY, 5, spotX, spotY, 85);
+                grad.addColorStop(0, 'rgba(254, 240, 138, 0.55)');
+                grad.addColorStop(0.5, 'rgba(250, 204, 21, 0.25)');
+                grad.addColorStop(1, 'rgba(250, 204, 21, 0)');
+
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(spotX, spotY, 85, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            drawHelicopter(ctx) {
+                if (!this.active) return;
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(-45, -3, 30, 6);
+
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(-48, -9, 4, 18);
+
+                ctx.fillStyle = '#1e3a8a';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 24, 12, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(-10, -8, 20, 16);
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 8px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('POLICE', 0, 1);
+
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath();
+                ctx.ellipse(13, 0, 8, 8, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                const isFlash = Math.floor(Date.now() / 120) % 2 === 0;
+                ctx.fillStyle = isFlash ? '#ef4444' : '#3b82f6';
+                ctx.beginPath();
+                ctx.arc(20, 0, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.save();
+                ctx.rotate(this.rotorAngle);
+                ctx.strokeStyle = 'rgba(248, 250, 252, 0.85)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(-44, 0); ctx.lineTo(44, 0);
+                ctx.moveTo(0, -44); ctx.lineTo(0, 44);
+                ctx.stroke();
+                ctx.restore();
+
+                ctx.restore();
+            }
+        }
+
+        const policeHelicopter = new Helicopter();
+
+        class TrafficCar {
+            constructor(x, y, isPolice = false) {
+                this.x = x;
+                this.y = y;
+                this.angle = (Math.floor(Math.random() * 4) * Math.PI) / 2;
+                this.isPolice = isPolice;
+                this.sirenTimer = Math.random() * 10;
+                
+                const types = ['sedan', 'tesla', 'bus', 'truck', 'container', 'motorcycle', 'scooter'];
+                this.type = isPolice ? 'police' : types[Math.floor(Math.random() * types.length)];
+
+                if (this.isPolice) {
+                    this.width = 24;
+                    this.length = 46;
+                    this.speed = 6.16;
+                    this.color = '#1e3a8a';
+                } else if (this.type === 'bus') {
+                    this.width = 28;
+                    this.length = 68;
+                    this.speed = 1.8 + Math.random() * 0.8;
+                    this.color = ['#dc2626', '#eab308', '#2563eb'][Math.floor(Math.random() * 3)];
+                } else if (this.type === 'container') {
+                    this.width = 28;
+                    this.length = 82;
+                    this.speed = 1.6 + Math.random() * 0.8;
+                    this.color = '#475569';
+                    this.containerColor = ['#ef4444', '#0284c7', '#059669', '#d97706'][Math.floor(Math.random() * 4)];
+                } else if (this.type === 'truck') {
+                    this.width = 26;
+                    this.length = 54;
+                    this.speed = 2.0 + Math.random() * 1.0;
+                    this.color = '#e2e8f0';
+                    this.boxColor = '#94a3b8';
+                } else if (this.type === 'tesla') {
+                    this.width = 24;
+                    this.length = 46;
+                    this.speed = 2.8 + Math.random() * 1.6;
+                    this.color = ['#f8fafc', '#0f172a', '#dc2626', '#3b82f6'][Math.floor(Math.random() * 4)];
+                } else if (this.type === 'motorcycle') {
+                    this.width = 14;
+                    this.length = 32;
+                    this.speed = 3.0 + Math.random() * 1.8;
+                    this.color = ['#f59e0b', '#10b981', '#ef4444'][Math.floor(Math.random() * 3)];
+                } else if (this.type === 'scooter') {
+                    this.width = 14;
+                    this.length = 26;
+                    this.speed = 2.2 + Math.random() * 1.2;
+                    this.color = ['#ec4899', '#06b6d4', '#84cc16', '#a855f7'][Math.floor(Math.random() * 4)];
+                } else { 
+                    this.width = 24;
+                    this.length = 46;
+                    this.speed = 2.2 + Math.random() * 1.5;
+                    this.color = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'][Math.floor(Math.random()*5)];
+                }
+            }
+
+            update() {
+                if (this.isPolice) {
+                    if (Date.now() < policeFreezeEndTime) {
+                        return;
+                    }
+
+                    const dx = player.x - this.x;
+                    const dy = player.y - this.y;
+                    const targetAngle = Math.atan2(dy, dx);
+                    
+                    let diff = targetAngle - this.angle;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+                    this.angle += Math.sign(diff) * Math.min(Math.abs(diff), 0.05);
+
+                    this.sirenTimer += 0.25;
+                } else {
+                    const lookX = this.x + Math.cos(this.angle) * (this.length / 2 + 20);
+                    const lookY = this.y + Math.sin(this.angle) * (this.length / 2 + 20);
+                    const tileC = Math.floor(lookX / TILE_SIZE);
+                    const tileR = Math.floor(lookY / TILE_SIZE);
+
+                    if (tileC < 1 || tileC >= MAP_SIZE - 1 || tileR < 1 || tileR >= MAP_SIZE - 1 || cityGrid[tileR][tileC] === TILE.BUILDING) {
+                        this.angle += Math.PI / 2;
+                    }
+                }
+
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+                ctx.fillRect(-this.length/2 + 3, -this.width/2 + 3, this.length, this.width);
+
+                if (this.isPolice) {
+                    ctx.fillStyle = '#0f172a';
+                    drawRoundRect(ctx, -this.length/2, -this.width/2, this.length, this.width, 5);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#1e3a8a';
+                    drawRoundRect(ctx, -this.length/2 + 1, -this.width/2 + 1, this.length - 2, this.width - 2, 4);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.fillRect(this.length*0.1, -this.width/2 + 2, this.length*0.3, this.width - 4);
+
+                    const isAlt = Math.floor(this.sirenTimer * 4) % 2 === 0;
+                    ctx.fillStyle = isAlt ? '#ef4444' : '#3b82f6';
+                    ctx.fillRect(-2, -this.width*0.35, 4, this.width*0.7);
+
+                } else if (this.type === 'bus') {
+                    ctx.fillStyle = this.color;
+                    drawRoundRect(ctx, -this.length/2, -this.width/2, this.length, this.width, 4);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#f8fafc';
+                    drawRoundRect(ctx, -10, -this.width/2 + 4, 25, this.width - 8, 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fillRect(-this.length/2 + 4, -this.width/2 + 2, this.length - 8, 2);
+                    ctx.fillRect(-this.length/2 + 4, this.width/2 - 4, this.length - 8, 2);
+
+                    ctx.fillStyle = '#000000';
+                    ctx.fillRect(this.length/2 - 6, -this.width/2 + 5, 4, this.width - 10);
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.fillRect(this.length/2 - 5, -this.width/2 + 7, 2, this.width - 14);
+
+                } else if (this.type === 'container') {
+                    ctx.fillStyle = this.color;
+                    drawRoundRect(ctx, this.length/2 - 22, -this.width/2 + 1, 20, this.width - 2, 3);
+                    ctx.fill();
+                    ctx.fillStyle = '#1e293b';
+                    ctx.fillRect(this.length/2 - 12, -this.width/2 + 3, 6, this.width - 6);
+
+                    ctx.fillStyle = this.containerColor;
+                    drawRoundRect(ctx, -this.length/2, -this.width/2, this.length - 24, this.width, 3);
+                    ctx.fill();
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                    for (let x = -this.length/2 + 6; x < this.length/2 - 28; x += 6) {
+                        ctx.fillRect(x, -this.width/2 + 2, 2, this.width - 4);
+                    }
+
+                } else if (this.type === 'truck') {
+                    ctx.fillStyle = this.boxColor;
+                    drawRoundRect(ctx, -this.length/2, -this.width/2, this.length - 16, this.width, 3);
+                    ctx.fill();
+
+                    ctx.fillStyle = this.color;
+                    drawRoundRect(ctx, this.length/2 - 14, -this.width/2 + 1, 13, this.width - 2, 3);
+                    ctx.fill();
+                    ctx.fillStyle = '#1e293b';
+                    ctx.fillRect(this.length/2 - 8, -this.width/2 + 3, 4, this.width - 6);
+
+                } else if (this.type === 'tesla') {
+                    ctx.fillStyle = this.color;
+                    drawRoundRect(ctx, -this.length/2, -this.width/2, this.length, this.width, 7);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#020617';
+                    drawRoundRect(ctx, -this.length/4, -this.width/2 + 3, this.length/2, this.width - 6, 4);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#e0f2fe';
+                    ctx.fillRect(this.length/2 - 3, -this.width/2 + 2, 2, this.width - 4);
+
+                } else if (this.type === 'motorcycle') {
+                    ctx.fillStyle = this.color;
+                    drawRoundRect(ctx, -this.length/2, -3, this.length, 6, 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#fef08a';
+                    ctx.fillRect(this.length/2 - 2, -2, 2, 4);
+                    ctx.fillStyle = '#0f172a';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                } else if (this.type === 'scooter') {
+                    ctx.fillStyle = this.color;
+                    drawRoundRect(ctx, -this.length/2, -this.width/2, this.length, this.width, 6);
+                    ctx.fill();
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.fillRect(this.length/2 - 5, -this.width/2 + 3, 3, this.width - 6);
+                    ctx.fillStyle = '#fef08a';
+                    ctx.beginPath();
+                    ctx.arc(this.length/2 - 1, 0, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(-2, 0, 4, 0, Math.PI * 2);
+                    ctx.fill();
+
+                } else { 
+                    ctx.fillStyle = this.color;
+                    drawRoundRect(ctx, -this.length/2, -this.width/2, this.length, this.width, 5);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fillRect(-this.length*0.1, -this.width*0.35, this.length*0.4, this.width*0.7);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        for (let i = 0; i < 22; i++) {
+            let rx, ry;
+            do {
+                rx = Math.floor(Math.random() * (MAP_SIZE - 4)) + 2;
+                ry = Math.floor(Math.random() * (MAP_SIZE - 4)) + 2;
+            } while (cityGrid[ry][rx] !== TILE.ROAD);
+
+            trafficCars.push(new TrafficCar(rx * TILE_SIZE + TILE_SIZE/2, ry * TILE_SIZE + TILE_SIZE/2));
+        }
+
+        let wantedLevel = 0;
+
+        function updateWantedHUD() {
+            const stars = document.querySelectorAll('#hud-wanted .star');
+            stars.forEach((star, index) => {
+                if (index < wantedLevel) {
+                    star.classList.remove('text-gray-600');
+                    star.classList.add('text-yellow-400', 'animate-pulse');
+                } else {
+                    star.classList.add('text-gray-600');
+                    star.classList.remove('text-yellow-400', 'animate-pulse');
+                }
+            });
+        }
+
+        function updateHealthHUD() {
+            const container = document.getElementById('hud-health');
+            container.innerHTML = '';
+            for (let i = 0; i < player.maxHealth; i++) {
+                const heart = document.createElement('span');
+                heart.className = i < player.health ? 'text-red-500 text-base drop-shadow' : 'text-gray-600 text-base';
+                heart.innerText = '♥';
+                container.appendChild(heart);
+            }
+        }
+
+        function updateBookHUD() {
+            document.getElementById('hud-books').innerText = `${player.books.toString().padStart(3, '0')} 本`;
+        }
+
+        updateHealthHUD();
+        updateBookHUD();
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.forward = true;
+            if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.backward = true;
+            if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.left = true;
+            if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.right = true;
+            if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.nitro = true;
+            if (e.code === 'Space') keys.drift = true;
+            if (e.code === 'KeyH') { audio.playHorn(); showToast("📣 叭叭！電單車響號！"); }
+            if (e.code === 'KeyR') resetPlayer();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.forward = false;
+            if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.backward = false;
+            if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.left = false;
+            if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.right = false;
+            if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.nitro = false;
+            if (e.code === 'Space') keys.drift = false;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+            mouse.activeMode = true;
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 0) {
+                mouse.x = e.touches[0].clientX;
+                mouse.y = e.touches[0].clientY;
+                mouse.activeMode = true;
+            }
+        }, { passive: true });
+
+        window.addEventListener('mousedown', () => { audio.init(); mouse.activeMode = true; });
+        window.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        function bindTouch(id, keyProp) {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyProp] = true; audio.init(); });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyProp] = false; });
+            btn.addEventListener('mousedown', () => { keys[keyProp] = true; audio.init(); });
+            btn.addEventListener('mouseup', () => { keys[keyProp] = false; });
+        }
+        bindTouch('t-left', 'left');
+        bindTouch('t-right', 'right');
+        bindTouch('t-brake', 'backward');
+        bindTouch('t-nitro', 'nitro');
+
+        const centerGasBtn = document.getElementById('btn-gas-center');
+        if (centerGasBtn) {
+            const startGas = (e) => {
+                if (e) e.preventDefault();
+                keys.forward = true;
+                audio.init();
+            };
+            const stopGas = (e) => {
+                if (e) e.preventDefault();
+                keys.forward = false;
+            };
+
+            centerGasBtn.addEventListener('pointerdown', startGas);
+            centerGasBtn.addEventListener('pointerup', stopGas);
+            centerGasBtn.addEventListener('pointerleave', stopGas);
+            centerGasBtn.addEventListener('pointercancel', stopGas);
+        }
+        
+        document.getElementById('t-horn').addEventListener('click', () => { audio.playHorn(); showToast("📣 叭叭！電單車響號！"); });
+
+        document.getElementById('btn-start').addEventListener('click', () => {
+            audio.init();
+            document.getElementById('start-modal').classList.add('hidden');
+        });
+
+        document.getElementById('btn-radio-next').addEventListener('click', () => {
+            const name = audio.nextRadio();
+            document.getElementById('hud-radio').innerText = name;
+        });
+        document.getElementById('btn-radio-prev').addEventListener('click', () => {
+            const name = audio.prevRadio();
+            document.getElementById('hud-radio').innerText = name;
+        });
+        document.getElementById('btn-audio-toggle').addEventListener('click', () => {
+            audio.init();
+        });
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast-msg');
+            toast.innerText = msg;
+            toast.classList.remove('opacity-0', '-translate-y-2');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-y-2');
+                toast.classList.remove('opacity-100', 'translate-y-0');
+            }, 2600);
+        }
+
+        function resetPlayer() {
+            player.x = TILE_SIZE * 10.5;
+            player.y = TILE_SIZE * 10.5;
+            player.speed = 0;
+            player.angle = 0;
+            showToast("🏍️ 電單車已返回福榮街起點！");
+        }
+
+        function spawnPoliceCar() {
+            let px, py, attempts = 0;
+            do {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 380 + Math.random() * 200;
+                px = player.x + Math.cos(angle) * dist;
+                py = player.y + Math.sin(angle) * dist;
+                
+                const tc = Math.floor(px / TILE_SIZE);
+                const tr = Math.floor(py / TILE_SIZE);
+                if (tc >= 1 && tc < MAP_SIZE - 1 && tr >= 1 && tr < MAP_SIZE - 1 && cityGrid[tr][tc] !== TILE.BUILDING) {
+                    policeCars.push(new TrafficCar(px, py, true));
+                    break;
+                }
+                attempts++;
+            } while (attempts < 25);
+        }
+
+        function updatePhysics() {
+            if (mouse.activeMode) {
+                const dx = mouse.x - canvas.width / 2;
+                const dy = mouse.y - canvas.height / 2;
+                const targetAngle = Math.atan2(dy, dx);
+                let diff = targetAngle - player.angle;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                player.angle += diff * 0.12;
+                player.leanAngle = diff;
+            } else {
+                if (keys.left) {
+                    player.angle -= player.turnSpeed * (player.speed < 0 ? -1 : 1);
+                    player.leanAngle = -0.6;
+                } else if (keys.right) {
+                    player.angle += player.turnSpeed * (player.speed < 0 ? -1 : 1);
+                    player.leanAngle = 0.6;
+                } else {
+                    player.leanAngle = 0;
+                }
+            }
+
+            // 檢查玩家是否到達深水埔街坊福利會小學
+            const schoolBuilding = buildingsList.find(b => b.type === 'school');
+            if (schoolBuilding) {
+                const isNearSchool = (
+                    player.x >= schoolBuilding.x - 30 &&
+                    player.x <= schoolBuilding.x + schoolBuilding.w + 30 &&
+                    player.y >= schoolBuilding.y - 30 &&
+                    player.y <= schoolBuilding.y + schoolBuilding.h + 30
+                );
+                const now = Date.now();
+                if (isNearSchool && (now - player.lastSchoolHealTime >= 60000)) { 
+                    player.lastSchoolHealTime = now;
+                    policeFreezeEndTime = now + 30000; 
+                    const healAmount = 3;
+                    player.health = Math.min(player.maxHealth, player.health + healAmount);
+                    updateHealthHUD();
+                    audio.playBookSound();
+                    showToast("🏫 抵達深水埔街坊福利會小學！成功補回 3 個機會，所有警車停止行駛 30 秒！");
+                }
+            }
+
+            let maxSpd = player.maxSpeed;
+            if (keys.nitro && player.nitro > 0) {
+                maxSpd *= 1.48;
+                player.nitro = Math.max(0, player.nitro - 0.6);
+                player.isNitroActive = true;
+            } else {
+                player.isNitroActive = false;
+                player.nitro = Math.min(100, player.nitro + 0.12);
+            }
+
+            if (keys.forward) {
+                player.speed = Math.min(maxSpd, player.speed + player.accel);
+            } else if (keys.backward) {
+                player.speed = Math.max(player.reverseMaxSpeed, player.speed - player.accel);
+            } else {
+                player.speed *= player.friction;
+                if (Math.abs(player.speed) < 0.05) player.speed = 0;
+            }
+
+            player.x += Math.cos(player.angle) * player.speed;
+            player.y += Math.sin(player.angle) * player.speed;
+
+            if (Math.abs(player.speed) > 1) {
+                player.exhaustParticles.push({
+                    x: player.x - Math.cos(player.angle) * 20,
+                    y: player.y - Math.sin(player.angle) * 20,
+                    size: 3 + Math.random() * 4,
+                    alpha: 0.6,
+                    color: player.isNitroActive ? '#38bdf8' : '#cbd5e1'
+                });
+            }
+
+            for (let i = player.exhaustParticles.length - 1; i >= 0; i--) {
+                const p = player.exhaustParticles[i];
+                p.alpha -= 0.04;
+                p.size += 0.2;
+                if (p.alpha <= 0) {
+                    player.exhaustParticles.splice(i, 1);
+                }
+            }
+
+            audio.updateEngineSound(Math.abs(player.speed) / player.maxSpeed, keys.forward);
+
+            const minBound = TILE_SIZE + player.width;
+            const maxBound = WORLD_BOUNDS - TILE_SIZE - player.width;
+            if (player.x < minBound) { player.x = minBound; player.speed = -player.speed * 0.4; audio.playCrash(); }
+            if (player.x > maxBound) { player.x = maxBound; player.speed = -player.speed * 0.4; audio.playCrash(); }
+            if (player.y < minBound) { player.y = minBound; player.speed = -player.speed * 0.4; audio.playCrash(); }
+            if (player.y > maxBound) { player.y = maxBound; player.speed = -player.speed * 0.4; audio.playCrash(); }
+
+            // Building Collisions
+            for (let i = 0; i < buildingsList.length; i++) {
+                const b = buildingsList[i];
+                if (b.type === 'soccer_court' || b.type === 'park') continue; 
+
+                if (player.x + player.width/2 > b.x && 
+                    player.x - player.width/2 < b.x + b.w && 
+                    player.y + player.length/2 > b.y && 
+                    player.y - player.length/2 < b.y + b.h) {
+
+                    audio.playCrash();
+                    player.speed = -player.speed * 0.5;
+                    
+                    const angleToPlayer = Math.atan2(player.y - (b.y + b.h/2), player.x - (b.x + b.w/2));
+                    player.x += Math.cos(angleToPlayer) * 7;
+                    player.y += Math.sin(angleToPlayer) * 7;
+                }
+            }
+
+            const nowTime = Date.now();
+            bookPickups.forEach(p => {
+                if (!p.active && p.respawnTime && nowTime >= p.respawnTime) {
+                    const activeCount = bookPickups.filter(b => b.active).length;
+                    if (activeCount >= 15) return;
+
+                    let newRx, newRy, validSpot = false, respawnAttempts = 0;
+                    while (!validSpot && respawnAttempts < 100) {
+                        respawnAttempts++;
+                        newRx = Math.floor(Math.random() * (MAP_SIZE - 4)) + 2;
+                        newRy = Math.floor(Math.random() * (MAP_SIZE - 4)) + 2;
+                        if (cityGrid[newRy][newRx] === TILE.BUILDING) continue;
+
+                        let nearbyCount = 0;
+                        for (const other of bookPickups) {
+                            if (other === p || !other.active) continue;
+                            const obrx = Math.floor(other.x / TILE_SIZE);
+                            const obry = Math.floor(other.y / TILE_SIZE);
+                            if (Math.hypot(newRx - obrx, newRy - obry) < 16) {
+                                nearbyCount++;
+                            }
+                        }
+                        if (nearbyCount < 5) validSpot = true;
+                    }
+
+                    if (validSpot) {
+                        p.x = newRx * TILE_SIZE + TILE_SIZE / 2;
+                        p.y = newRy * TILE_SIZE + TILE_SIZE / 2;
+                    }
+
+                    p.active = true;
+                    const newBook = getRandomBook();
+                    p.title = newBook.name;
+                    p.emoji = newBook.emoji;
+                }
+
+                if (p.active) {
+                    p.pulse += 0.06;
+                    p.rotAngle += 0.03;
+                    const dist = Math.hypot(player.x - p.x, player.y - p.y);
+                    if (dist < 38) {
+                        p.active = false;
+                        p.respawnTime = nowTime + 30000;
+                        player.books += p.amount;
+                        audio.playBookSound();
+                        updateBookHUD();
+                        showToast(`📖 成功收集《${p.title}》${p.emoji}！現有 ${player.books} 本 (30秒後再生)`);
+                    }
+                }
+            });
+
+            const playerR = Math.floor(player.y / TILE_SIZE);
+            const playerC = Math.floor(player.x / TILE_SIZE);
+
+            let matchedHoriz = null;
+            let matchedVert = null;
+
+            streetLabels.forEach(st => {
+                if (st.isHoriz && Math.abs(playerR - st.r) <= 1) {
+                    matchedHoriz = st.name;
+                }
+                if (!st.isHoriz && Math.abs(playerC - st.c) <= 1) {
+                    matchedVert = st.name;
+                }
+            });
+
+            let displayText = "📍 深水埗街道探索中...";
+            if (matchedHoriz && matchedVert) {
+                const horizName = matchedHoriz.split(' ')[0];
+                const vertName = matchedVert.split(' ')[0];
+                displayText = `📍 ${horizName} ✕ ${vertName} 交界`;
+            } else if (matchedHoriz) {
+                displayText = `📍 ${matchedHoriz}`;
+            } else if (matchedVert) {
+                displayText = `📍 ${matchedVert}`;
+            }
+
+            document.getElementById('street-name-text').innerText = displayText;
+
+            trafficCars.forEach(car => {
+                car.update();
+                const dist = Math.hypot(player.x - car.x, player.y - car.y);
+                const minDist = (car.width + car.length) / 4 + 10;
+                if (dist < minDist) {
+                    if (!car.hitCooldown || car.hitCooldown <= 0) {
+                        car.hitCooldown = 30;
+                        audio.playCrash();
+                        player.speed = -player.speed * 0.6;
+                        
+                        wantedLevel = Math.min(5, wantedLevel + 1);
+                        updateWantedHUD();
+
+                        const typeNames = {
+                            bus: '雙層巴士',
+                            container: '重型貨櫃車',
+                            truck: '貨車',
+                            tesla: 'Tesla 電車',
+                            motorcycle: '電單車',
+                            scooter: '綿羊仔',
+                            sedan: '私家車'
+                        };
+                        const hitName = typeNames[car.type] || '車輛';
+                        showToast(`🚨 碰撞${hitName}！通緝度升至 ★${wantedLevel}`);
+                        
+                        if (policeCars.length < wantedLevel * 2) {
+                            spawnPoliceCar();
+                        }
+
+                        if (wantedLevel >= 3 && !policeHelicopter.active) {
+                            policeHelicopter.spawn(player.x, player.y);
+                            showToast("🚁 通緝達 ★3！深水埗警察直升機登場追捕！");
+                        }
+                    }
+                }
+                if (car.hitCooldown > 0) car.hitCooldown--;
+            });
+
+            policeHelicopter.update(player.x, player.y);
+
+            policeCars.forEach(pCar => {
+                pCar.update();
+                const dist = Math.hypot(player.x - pCar.x, player.y - pCar.y);
+                if (dist < 32) {
+                    if (!pCar.hitCooldown || pCar.hitCooldown <= 0) {
+                        pCar.hitCooldown = 30;
+                        audio.playCrash();
+                        player.speed = -player.speed * 0.7;
+                        player.health = Math.max(0, player.health - 1);
+                        updateHealthHUD();
+                        showToast("🚨 被警車攔截！機會 -1");
+
+                        if (player.health <= 0) {
+                            const lostBooks = Math.ceil(player.books * 0.5);
+                            player.books = Math.floor(player.books * 0.5);
+                            showToast(`💔 機會耗盡！扣減 50% 書本 (-${lostBooks}本)，重置電單車！`);
+                            setTimeout(() => {
+                                player.health = player.maxHealth;
+                                wantedLevel = 0;
+                                policeCars.length = 0;
+                                policeHelicopter.active = false;
+                                updateWantedHUD();
+                                updateHealthHUD();
+                                updateBookHUD();
+                                resetPlayer();
+                            }, 1000);
+                        }
+                    }
+                }
+                if (pCar.hitCooldown > 0) pCar.hitCooldown--;
+            });
+
+            const displaySpeed = Math.min(100, Math.max(0, Math.round((Math.abs(player.speed) / (player.maxSpeed * 1.48)) * 100)));
+            document.getElementById('hud-speed').innerText = `${displaySpeed} KM/H`;
+        }
+
+        function drawUltraDetailedMotorbike(ctx) {
+            ctx.save();
+            ctx.translate(player.x, player.y - player.jumpZ);
+            ctx.rotate(player.angle);
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+            ctx.beginPath();
+            ctx.ellipse(3 + player.jumpZ * 0.2, 3 + player.jumpZ * 0.2, 22, 9, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.rotate(player.leanAngle * 0.35);
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(-22, -5, 12, 10);
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(-20, -4, 2, 8);
+            ctx.fillRect(-15, -4, 2, 8);
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(12, -4, 10, 8);
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(14, -3, 2, 6);
+            ctx.fillRect(18, -3, 2, 6);
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(-16, 5, 18, 3);
+            ctx.fillStyle = '#f1f5f9';
+            ctx.fillRect(-18, 5, 4, 3);
+
+            const bikeGrad = ctx.createLinearGradient(0, -8, 0, 8);
+            bikeGrad.addColorStop(0, '#eab308');
+            bikeGrad.addColorStop(0.5, '#ca8a04');
+            bikeGrad.addColorStop(1, '#854d0e');
+
+            ctx.fillStyle = bikeGrad;
+            drawRoundRect(ctx, -12, -7, 24, 14, 4);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(-6, -6, 12, 2);
+            ctx.fillRect(-6, 4, 12, 2);
+
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(-8, -4, 10, 8);
+
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(4, -11, 3, 22);
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(3, -12, 4, 3);
+            ctx.fillRect(3, 9, 4, 3);
+
+            ctx.fillStyle = '#18181b';
+            drawRoundRect(ctx, -10, -5, 12, 10, 3);
+            ctx.fill();
+
+            ctx.fillStyle = '#dc2626';
+            ctx.beginPath();
+            ctx.arc(5, -9, 2.5, 0, Math.PI * 2);
+            ctx.arc(5, 9, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ef4444'; 
+            ctx.beginPath();
+            ctx.arc(-2, 0, 6.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.arc(1, 0, 5, -Math.PI/3, Math.PI/3);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, -2, 2, 4);
+
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.7)';
+            ctx.beginPath();
+            ctx.moveTo(8, -5);
+            ctx.lineTo(14, 0);
+            ctx.lineTo(8, 5);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#fef08a';
+            ctx.beginPath();
+            ctx.arc(15, 0, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(254, 240, 138, 0.22)';
+            ctx.beginPath();
+            ctx.moveTo(16, 0);
+            ctx.lineTo(110, -35);
+            ctx.lineTo(110, 35);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = (keys.backward || keys.drift) ? '#ff0000' : '#dc2626';
+            ctx.fillRect(-15, -3, 2, 6);
+            if (keys.backward || keys.drift) {
+                ctx.shadowColor = '#ff0000';
+                ctx.shadowBlur = 12;
+                ctx.fillRect(-18, -4, 4, 8);
+                ctx.shadowBlur = 0;
+            }
+
+            ctx.restore();
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const camX = canvas.width / 2 - player.x;
+            const camY = canvas.height / 2 - player.y;
+
+            ctx.save();
+            ctx.translate(camX, camY);
+
+            const startC = Math.max(0, Math.floor((-camX) / TILE_SIZE));
+            const endC = Math.min(MAP_SIZE, Math.ceil((-camX + canvas.width) / TILE_SIZE));
+            const startR = Math.max(0, Math.floor((-camY) / TILE_SIZE));
+            const endR = Math.min(MAP_SIZE, Math.ceil((-camY + canvas.height) / TILE_SIZE));
+
+            // Draw Ground Map Tiles
+            for (let r = startR; r < endR; r++) {
+                for (let c = startC; c < endC; c++) {
+                    const tile = cityGrid[r][c];
+                    const tx = c * TILE_SIZE;
+                    const ty = r * TILE_SIZE;
+
+                    if (tile === TILE.ROAD) {
+                        ctx.fillStyle = '#1e293b';
+                        ctx.fillRect(tx, ty, TILE_SIZE, TILE_SIZE);
+                        ctx.strokeStyle = '#334155';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(tx, ty, TILE_SIZE, TILE_SIZE);
+                    } else if (tile === TILE.SIDEWALK) {
+                        ctx.fillStyle = '#475569';
+                        ctx.fillRect(tx, ty, TILE_SIZE, TILE_SIZE);
+                        ctx.strokeStyle = '#64748b';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(tx, ty, TILE_SIZE, TILE_SIZE);
+                    } else if (tile === TILE.PARK) {
+                        ctx.fillStyle = '#15803d';
+                        ctx.fillRect(tx, ty, TILE_SIZE, TILE_SIZE);
+                    } else if (tile === TILE.RAMP) {
+                        ctx.fillStyle = '#b45309';
+                        ctx.fillRect(tx, ty, TILE_SIZE, TILE_SIZE);
+                        ctx.fillStyle = '#f59e0b';
+                        ctx.fillRect(tx + 10, ty + 10, TILE_SIZE - 20, TILE_SIZE - 20);
+                    } else if (tile === TILE.SOCCER_PITCH) {
+                        ctx.fillStyle = '#16a34a';
+                        ctx.fillRect(tx, ty, TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
+
+            policeHelicopter.drawGroundEffects(ctx);
+
+            player.exhaustParticles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.alpha;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            });
+
+            bookPickups.forEach(p => {
+                if (p.active) {
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    const hoverY = Math.sin(p.pulse) * 6;
+                    ctx.translate(0, hoverY);
+
+                    const tilt = Math.sin(p.rotAngle) * 0.25;
+                    ctx.rotate(tilt);
+
+                    ctx.shadowColor = '#fbbf24';
+                    ctx.shadowBlur = 14;
+
+                    ctx.fillStyle = '#1e3a8a';
+                    ctx.beginPath();
+                    ctx.moveTo(0, -18);
+                    ctx.quadraticCurveTo(-12, -20, -22, -15);
+                    ctx.lineTo(-22, 16);
+                    ctx.quadraticCurveTo(-12, 12, 0, 14);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.beginPath();
+                    ctx.moveTo(0, -18);
+                    ctx.quadraticCurveTo(12, -20, 22, -15);
+                    ctx.lineTo(22, 16);
+                    ctx.quadraticCurveTo(12, 12, 0, 14);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.strokeStyle = '#3b82f6';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#fffbeb';
+                    ctx.beginPath();
+                    ctx.moveTo(0, -16);
+                    ctx.quadraticCurveTo(-10, -18, -19, -13);
+                    ctx.lineTo(-19, 13);
+                    ctx.quadraticCurveTo(-10, 9, 0, 11);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.beginPath();
+                    ctx.moveTo(0, -16);
+                    ctx.quadraticCurveTo(10, -18, 19, -13);
+                    ctx.lineTo(19, 13);
+                    ctx.quadraticCurveTo(10, 9, 0, 11);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+                    ctx.beginPath();
+                    ctx.moveTo(-2, -16);
+                    ctx.lineTo(2, -16);
+                    ctx.lineTo(3, 12);
+                    ctx.lineTo(-3, 12);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.strokeStyle = '#d97706';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(0, -17);
+                    ctx.lineTo(0, 13);
+                    ctx.stroke();
+
+                    ctx.strokeStyle = '#94a3b8';
+                    ctx.lineWidth = 1;
+
+                    ctx.beginPath();
+                    ctx.moveTo(-15, -8); ctx.lineTo(-4, -6);
+                    ctx.moveTo(-16, -2); ctx.lineTo(-4, 0);
+                    ctx.moveTo(-15, 4);  ctx.lineTo(-4, 6);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(4, -6); ctx.lineTo(15, -8);
+                    ctx.moveTo(4, 0);  ctx.lineTo(16, -2);
+                    ctx.moveTo(4, 6);  ctx.lineTo(15, 4);
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#ef4444';
+                    ctx.beginPath();
+                    ctx.moveTo(0, 11);
+                    ctx.lineTo(4, 22);
+                    ctx.lineTo(0, 19);
+                    ctx.lineTo(-4, 22);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.fillStyle = '#fef08a';
+                    ctx.beginPath();
+                    ctx.arc(0, -22, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.font = 'bold 12px "Noto Sans TC", sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    ctx.fillStyle = '#fef08a';
+                    ctx.shadowColor = '#000000';
+                    ctx.shadowBlur = 6;
+                    ctx.fillText(`${p.emoji || '📖'} ${p.title || ''}`, 0, -25);
+
+                    ctx.shadowBlur = 0;
+                    ctx.restore();
+                }
+            });
+
+            trafficCars.forEach(car => car.draw());
+            policeCars.forEach(car => car.draw());
+
+            drawUltraDetailedMotorbike(ctx);
+
+            const standardBuildings = buildingsList.filter(b => b.type !== 'school');
+            const topLayerLandmarks = buildingsList.filter(b => b.type === 'school');
+
+            const renderBuildingItem = (b) => {
+                if (b.x + b.w < -camX || b.x > -camX + canvas.width || b.y + b.h < -camY || b.y > -camY + canvas.height) return;
+
+                ctx.fillStyle = 'rgba(0,0,0,0.45)';
+                ctx.fillRect(b.x + 8, b.y + 8, b.w, b.h);
+
+                if (b.type === 'soccer_court') {
+                    // 楓樹街遊樂場（16格大型足球場畫線與圖標）
+                    ctx.fillStyle = '#15803d';
+                    ctx.fillRect(b.x, b.y, b.w, b.h);
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 4;
+                    ctx.strokeRect(b.x + 12, b.y + 12, b.w - 24, b.h - 24);
+
+                    // 中央分界線
+                    ctx.beginPath();
+                    ctx.moveTo(b.x + 12, b.y + b.h / 2);
+                    ctx.lineTo(b.x + b.w - 12, b.y + b.h / 2);
+                    ctx.stroke();
+
+                    // 中圈
+                    ctx.beginPath();
+                    ctx.arc(b.x + b.w/2, b.y + b.h/2, 60, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // 上下兩端球門禁區
+                    ctx.strokeRect(b.x + b.w/2 - 80, b.y + 12, 160, 70);
+                    ctx.strokeRect(b.x + b.w/2 - 80, b.y + b.h - 82, 160, 70);
+
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.font = '48px "Noto Sans TC", sans-serif';
+                    ctx.fillText('⚽', b.x + b.w/2, b.y + b.h/2 - 28);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.shadowColor = '#000000';
+                    ctx.shadowBlur = 8;
+                    ctx.font = 'bold 36px "Noto Sans TC", sans-serif';
+                    ctx.fillText(b.label, b.x + b.w/2, b.y + b.h/2 + 28);
+                    ctx.shadowBlur = 0;
+
+                } else if (b.type === 'school') {
+                    ctx.fillStyle = b.color;
+                    ctx.fillRect(b.x, b.y, b.w, b.h);
+                    ctx.strokeStyle = '#f59e0b';
+                    ctx.lineWidth = 4;
+                    ctx.strokeRect(b.x, b.y, b.w, b.h);
+
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.font = '36px "Noto Sans TC", sans-serif';
+                    ctx.fillText('🏫', b.x + b.w/2, b.y + b.h/2 - 20);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.shadowColor = '#000000';
+                    ctx.shadowBlur = 6;
+                    ctx.font = 'bold 32px "Noto Sans TC", sans-serif';
+                    ctx.fillText(b.label, b.x + b.w/2, b.y + b.h/2 + 20);
+                    ctx.shadowBlur = 0;
+
+                } else if (b.type === 'park') {
+                    ctx.fillStyle = '#166534';
+                    ctx.fillRect(b.x, b.y, b.w, b.h);
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.font = '34px "Noto Sans TC", sans-serif';
+                    ctx.fillText('🌳', b.x + b.w/2, b.y + b.h/2 - 18);
+                    ctx.fillStyle = '#86efac';
+                    ctx.shadowColor = '#000000';
+                    ctx.shadowBlur = 6;
+                    ctx.font = 'bold 30px "Noto Sans TC", sans-serif';
+                    ctx.fillText(b.label, b.x + b.w/2, b.y + b.h/2 + 18);
+                    ctx.shadowBlur = 0;
+
+                } else if (b.type === 'landmark') {
+                    ctx.fillStyle = b.color;
+                    ctx.fillRect(b.x, b.y, b.w, b.h);
+                    ctx.strokeStyle = '#fef08a';
+                    ctx.lineWidth = 4;
+                    ctx.strokeRect(b.x, b.y, b.w, b.h);
+                    
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.font = '42px "Noto Sans TC", sans-serif'; 
+                    ctx.fillText(b.emoji, b.x + b.w/2, b.y + b.h/2 - 22);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.shadowColor = '#000000';
+                    ctx.shadowBlur = 6;
+                    ctx.font = 'bold 38px "Noto Sans TC", sans-serif';
+                    ctx.fillText(b.label, b.x + b.w/2, b.y + b.h/2 + 22);
+                    ctx.shadowBlur = 0;
+
+                } else {
+                    ctx.fillStyle = b.color;
+                    ctx.fillRect(b.x, b.y, b.w, b.h);
+                    ctx.strokeStyle = '#0f172a';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(b.x, b.y, b.w, b.h);
+
+                    ctx.fillStyle = '#475569';
+                    ctx.beginPath();
+                    ctx.arc(b.x + 18, b.y + 18, 8, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    if (b.label) {
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        const displayEmoji = b.emoji || '🏢';
+                        ctx.font = '32px "Noto Sans TC", sans-serif';
+                        ctx.fillText(displayEmoji, b.x + b.w/2, b.y + b.h/2 - 16);
+                        
+                        ctx.fillStyle = '#fef08a';
+                        ctx.shadowColor = '#000000';
+                        ctx.shadowBlur = 6;
+                        ctx.font = 'bold 28px "Noto Sans TC", sans-serif';
+                        ctx.fillText(b.label, b.x + b.w/2, b.y + b.h/2 + 16);
+                        ctx.shadowBlur = 0;
+                    }
+                }
+            };
+
+            standardBuildings.forEach(renderBuildingItem);
+            topLayerLandmarks.forEach(renderBuildingItem);
+
+            policeHelicopter.drawHelicopter(ctx);
+
+            ctx.restore();
+
+            radarCtx.clearRect(0, 0, radarCanvas.width, radarCanvas.height);
+            radarCtx.save();
+            radarCtx.translate(65, 65);
+
+            const scale = 0.042;
+
+            bookPickups.forEach(p => {
+                if (p.active) {
+                    const rx = (p.x - player.x) * scale;
+                    const ry = (p.y - player.y) * scale;
+                    radarCtx.fillStyle = '#38bdf8';
+                    radarCtx.fillRect(rx - 1.5, ry - 1.5, 3, 3);
+                }
+            });
+
+            trafficCars.forEach(car => {
+                const rx = (car.x - player.x) * scale;
+                const ry = (car.y - player.y) * scale;
+                radarCtx.fillStyle = (car.type === 'bus' || car.type === 'container') ? '#f59e0b' : '#94a3b8';
+                radarCtx.fillRect(rx - 1, ry - 1, 2.5, 2.5);
+            });
+
+            policeCars.forEach(pCar => {
+                const rx = (pCar.x - player.x) * scale;
+                const ry = (pCar.y - player.y) * scale;
+                const flashState = Math.floor(Date.now() / 150) % 2 === 0;
+                radarCtx.fillStyle = flashState ? '#ef4444' : '#3b82f6';
+                radarCtx.beginPath();
+                radarCtx.arc(rx, ry, 3.5, 0, Math.PI * 2);
+                radarCtx.fill();
+            });
+
+            radarCtx.rotate(player.angle);
+            radarCtx.fillStyle = '#eab308';
+            radarCtx.beginPath();
+            radarCtx.moveTo(0, -6);
+            radarCtx.lineTo(-4, 5);
+            radarCtx.lineTo(4, 5);
+            radarCtx.closePath();
+            radarCtx.fill();
+
+            radarCtx.restore();
+        }
+
+        function gameLoop() {
+            updatePhysics();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = function() {
+            gameLoop();
+        };
+    </script>
+</body>
+</html>
