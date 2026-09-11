@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Velocity: Space Roam</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            touch-action: none;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .hud-panel {
+            background: rgba(10, 10, 15, 0.7);
+            border: 2px solid #00f3ff;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+            backdrop-filter: blur(5px);
+            color: #fff;
+            text-transform: uppercase;
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        #speedometer {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00f3ff;
+            text-shadow: 0 0 10px #00f3ff;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #speed-value {
+            font-size: 48px;
+            line-height: 1;
+        }
+
+        #boost-meter {
+            width: 200px;
+            margin-top: 10px;
+        }
+
+        .bar-bg {
+            background: rgba(255, 255, 255, 0.1);
+            height: 10px;
+            border-radius: 5px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 0, 234, 0.5);
+        }
+
+        #boost-bar {
+            background: #ff00ea;
+            height: 100%;
+            width: 100%;
+            box-shadow: 0 0 10px #ff00ea;
+            transition: width 0.1s linear;
+        }
+
+        .boost-active-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle, transparent 40%, rgba(255, 0, 234, 0.15) 100%);
+            z-index: 5;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        /* 觸控按鈕 UI */
+        #touch-controls {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            z-index: 20;
+            display: flex;
+            gap: 20px;
+            pointer-events: auto;
+        }
+
+        .touch-btn {
+            width: 80px;
+            height: 80px;
+            background: rgba(0, 243, 255, 0.1);
+            border: 2px solid #00f3ff;
+            border-radius: 50%;
+            color: #00f3ff;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 14px;
+            user-select: none;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+            transition: all 0.1s;
+        }
+
+        .touch-btn:active, .touch-btn.active {
+            background: rgba(0, 243, 255, 0.4);
+            transform: scale(0.95);
+            box-shadow: 0 0 25px rgba(0, 243, 255, 0.6);
+        }
+
+        #btn-boost {
+            border-color: #ff00ea;
+            color: #ff00ea;
+            box-shadow: 0 0 15px rgba(255, 0, 234, 0.2);
+        }
+        
+        #btn-boost:active, #btn-boost.active {
+            background: rgba(255, 0, 234, 0.4);
+            box-shadow: 0 0 25px rgba(255, 0, 234, 0.6);
+        }
+
+        .instruction {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            text-align: right;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            z-index: 10;
+        }
+
+        /* 行星文字標籤 */
+        #labels-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        .planet-label {
+            position: absolute;
+            color: white;
+            font-family: sans-serif;
+            font-size: 12px;
+            text-align: center;
+            transform: translate(-50%, -100%);
+            text-shadow: 0 0 4px #000, 0 0 4px #000;
+            margin-top: -10px;
+            opacity: 0.8;
+        }
+        .planet-name-zh {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00f3ff;
+            font-size: 24px;
+            font-family: monospace;
+            text-shadow: 0 0 10px #00f3ff;
+            z-index: 100;
+            transition: opacity 0.5s;
+        }
+
+        /* 黑洞與返航警告 UI 樣式 */
+        #blackhole-warning {
+            display: none;
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            color: #ff0055;
+            z-index: 100;
+            font-family: sans-serif;
+            pointer-events: none;
+        }
+
+        #blackhole-warning h1 {
+            text-shadow: 0 0 20px #ff0055, 0 0 40px #ff0055;
+            margin-bottom: 10px;
+            font-size: 28px;
+            letter-spacing: 2px;
+            animation: pulse 0.5s infinite alternate;
+        }
+
+        #blackhole-warning p {
+            color: #fff;
+            margin-bottom: 15px;
+            font-weight: bold;
+            font-size: 16px;
+            text-shadow: 0 0 5px #000;
+        }
+
+        .escape-bar-container {
+            width: 300px;
+            height: 20px;
+            border: 2px solid #ff0055;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 0 auto;
+            background: rgba(0,0,0,0.7);
+            box-shadow: 0 0 10px rgba(255, 0, 85, 0.5);
+        }
+
+        #escape-bar {
+            width: 0%;
+            height: 100%;
+            background: #ff0055;
+            box-shadow: 0 0 15px #ff0055;
+            transition: width 0.1s linear;
+        }
+
+        #turnaround-warning {
+            display: none;
+            position: absolute;
+            top: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            color: #fcee0a;
+            z-index: 100;
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            text-shadow: 0 0 15px #fcee0a;
+            pointer-events: none;
+            animation: pulse 1s infinite alternate;
+        }
+
+        /* 郭怡雅神父紀念學校標題 UI (移除螢光特效，只留普通陰影) */
+        #classroom-title {
+            position: absolute;
+            top: 30%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ffffff;
+            font-size: 50px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 2s ease-in-out;
+            letter-spacing: 5px;
+            text-align: center;
+        }
+
+        /* 作者簽名 */
+        #signature {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 20px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 5px #ff00ea, 0 0 15px #00f3ff;
+            z-index: 50;
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        @keyframes pulse {
+            from { opacity: 0.7; }
+            to { opacity: 1; transform: scale(1.05); }
+        }
+    </style>
+    
+    <!-- Import Maps for Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="loading">INITIALIZING SYSTEM...</div>
+    <div id="game-container"></div>
+    <div id="labels-layer"></div>
+    <div class="boost-active-overlay" id="boost-overlay"></div>
+    
+    <!-- 警告 UI 元素 -->
+    <div id="blackhole-warning">
+        <h1>⚠️ 警告：黑洞引力場 ⚠️</h1>
+        <p>引擎輸出不足！請持續按住【加速鍵】 5 秒以逃脫！</p>
+        <div class="escape-bar-container">
+            <div id="escape-bar"></div>
+        </div>
+    </div>
+    <div id="turnaround-warning">
+        到達星系邊緣，導航系統自動返航中...
+    </div>
+    
+    <!-- 異空間標題 (修改為郭怡雅神父紀念學校) -->
+    <div id="classroom-title">
+        郭怡雅神父紀念學校<br>
+        <span style="font-size: 24px; letter-spacing: 2px; color: #ccc;">學校大門</span>
+    </div>
+
+    <div id="touch-controls">
+        <div class="touch-btn" id="btn-brake">減速<br>BRAKE</div>
+        <div class="touch-btn" id="btn-boost">加速<br>BOOST</div>
+    </div>
+
+    <div id="ui-layer">
+        <div class="hud-top">
+            <div class="hud-panel" id="speedometer">
+                <span>VELOCITY</span>
+                <div><span id="speed-value">0</span> <span style="font-size: 16px;">KM/S</span></div>
+                <div id="boost-meter">
+                    <span style="font-size: 12px; color: #ff00ea;">WARP CORE</span>
+                    <div class="bar-bg">
+                        <div id="boost-bar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="instruction">
+        滑鼠/螢幕拖曳: 轉向控制<br>
+        W/S/A/D/Q/E: 鍵盤轉向<br>
+        Space: 極速曲速引擎
+    </div>
+
+    <!-- 專屬簽名 -->
+    <div id="signature">BY CHY</div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // --- STREAMING_CHUNK: Core Setup ---
+        const container = document.getElementById('game-container');
+        const labelsLayer = document.getElementById('labels-layer');
+        const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance", logarithmicDepthBuffer: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); 
+        container.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x020205);
+        scene.fog = new THREE.FogExp2(0x020205, 0.00005); 
+
+        // --- Camera Setup ---
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 50000);
+        let targetFov = 75;
+
+        // --- Post-Processing (光影後處理特效) ---
+        const composer = new EffectComposer(renderer);
+        const renderPass = new RenderPass(scene, camera);
+        composer.addPass(renderPass);
+
+        // 增強泛光，降低觸發門檻以突顯星球色彩與發光特效
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.8, 0.6, 0.2);
+        composer.addPass(bloomPass);
+
+        // --- Lighting ---
+        // 調暗環境光，增加星體背光面的陰影對比
+        const ambientLight = new THREE.AmbientLight(0x222222, 0.5); 
+        scene.add(ambientLight);
+        
+        // 太陽的主光源
+        const sunLight = new THREE.PointLight(0xffeedd, 3, 20000);
+        sunLight.position.set(0, 0, 0);
+        scene.add(sunLight);
+
+        // --- 產生宇宙星空 (Background Stars - 效能版 250顆) ---
+        const starGeo = new THREE.BufferGeometry();
+        const starCount = 250;
+        const starPos = new Float32Array(starCount * 3);
+        for(let i = 0; i < starCount * 3; i++) {
+            starPos[i] = (Math.random() - 0.5) * 40000;
+        }
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+        const starMat = new THREE.PointsMaterial({color: 0xffffff, size: 3, sizeAttenuation: false});
+        const stars = new THREE.Points(starGeo, starMat);
+        scene.add(stars);
+
+        // --- STREAMING_CHUNK: Building Solar System and Planets... ---
+        
+        const planetData = [
+            { nameZh: '太陽', nameEn: 'Sun', radius: 400, distance: 0, color: 0xfff000, speed: 0, emissive: true },
+            { nameZh: '水星', nameEn: 'Mercury', radius: 15, distance: 800, color: 0xaaaaaa, speed: 0.8 },
+            { nameZh: '金星', nameEn: 'Venus', radius: 35, distance: 1200, color: 0xffcc00, speed: 0.6 },
+            { nameZh: '地球', nameEn: 'Earth', radius: 40, distance: 1800, color: 0x0088ff, speed: 0.4 },
+            { nameZh: '火星', nameEn: 'Mars', radius: 25, distance: 2500, color: 0xff4400, speed: 0.32 },
+            { nameZh: '木星', nameEn: 'Jupiter', radius: 150, distance: 4000, color: 0xffaa66, speed: 0.15 },
+            { nameZh: '土星', nameEn: 'Saturn', radius: 120, distance: 6000, color: 0xf5deb3, speed: 0.1 },
+            { nameZh: '天王星', nameEn: 'Uranus', radius: 60, distance: 8000, color: 0x00ffff, speed: 0.07 },
+            { nameZh: '海王星', nameEn: 'Neptune', radius: 55, distance: 10000, color: 0x0000ff, speed: 0.05 },
+            { nameZh: '冥王星', nameEn: 'Pluto', radius: 8, distance: 12000, color: 0xdddddd, speed: 0.03 }
+        ];
+
+        const moonData = [
+            { parentIndex: 3, nameZh: '月球', nameEn: 'Moon', radius: 10, distance: 90, color: 0xdddddd, speed: 2.0 },
+            { parentIndex: 4, nameZh: '火衛一', nameEn: 'Phobos', radius: 4, distance: 50, color: 0x999999, speed: 3.5 },
+            { parentIndex: 5, nameZh: '歐羅巴', nameEn: 'Europa', radius: 15, distance: 220, color: 0x88ccff, speed: 1.8 },
+            { parentIndex: 5, nameZh: '木衛三', nameEn: 'Ganymede', radius: 22, distance: 350, color: 0xbbbbbb, speed: 1.2 },
+            { parentIndex: 6, nameZh: '泰坦', nameEn: 'Titan', radius: 28, distance: 300, color: 0xffaa00, speed: 1.5 },
+            { parentIndex: 8, nameZh: '海衛一', nameEn: 'Triton', radius: 18, distance: 150, color: 0xaaaaff, speed: 2.2 }
+        ];
+
+        const planets = [];
+        planetData.forEach((data, index) => {
+            // Low-poly 效能優化版 (分段數 8, 8)
+            const planetGeo = new THREE.SphereGeometry(data.radius, 8, 8); 
+            // 物理材質，帶有反光與高光
+            const planetMat = new THREE.MeshPhongMaterial({ 
+                color: data.color, 
+                emissive: data.color, 
+                emissiveIntensity: data.emissive ? 2.5 : 0.6,
+                flatShading: true,
+                shininess: 30
+            });
+            const planetMesh = new THREE.Mesh(planetGeo, planetMat);
+            scene.add(planetMesh);
+
+            if (data.distance > 0) {
+                const orbitGeo = new THREE.BufferGeometry();
+                const orbitPoints = [];
+                for(let i=0; i<=64; i++) { 
+                    const theta = (i / 64) * Math.PI * 2;
+                    orbitPoints.push(new THREE.Vector3(Math.cos(theta)*data.distance, 0, Math.sin(theta)*data.distance));
+                }
+                orbitGeo.setFromPoints(orbitPoints);
+                const orbitMat = new THREE.LineBasicMaterial({color: 0x444444, transparent: true, opacity: 0.5});
+                const orbitLine = new THREE.Line(orbitGeo, orbitMat);
+                scene.add(orbitLine);
+            }
+
+            const label = document.createElement('div');
+            label.className = 'planet-label';
+            label.innerHTML = `<span class="planet-name-zh" style="color:#${data.color.toString(16).padStart(6,'0')}">${data.nameZh}</span><br>${data.nameEn}`;
+            labelsLayer.appendChild(label);
+
+            if (data.nameEn === 'Saturn') {
+                const ringGeo = new THREE.RingGeometry(data.radius * 1.4, data.radius * 2.2, 12);
+                const ringMat = new THREE.MeshPhongMaterial({ 
+                    color: 0xeebb88, 
+                    side: THREE.DoubleSide, transparent: true, opacity: 0.8, 
+                    emissive: 0xeebb88, emissiveIntensity: 0.4,
+                    flatShading: true
+                });
+                const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+                ringMesh.rotation.x = Math.PI / 2 - 0.2;
+                planetMesh.add(ringMesh);
+            }
+
+            planets.push({ mesh: planetMesh, data: data, angle: Math.random() * Math.PI * 2, labelElement: label });
+        });
+
+        const moons = [];
+        moonData.forEach(mData => {
+            const parentPlanet = planets[mData.parentIndex].mesh;
+            const moonGeo = new THREE.SphereGeometry(mData.radius, 6, 6); 
+            const moonMat = new THREE.MeshPhongMaterial({ 
+                color: mData.color,
+                emissive: mData.color, 
+                emissiveIntensity: 0.6,
+                flatShading: true
+            });
+            const moonMesh = new THREE.Mesh(moonGeo, moonMat);
+            scene.add(moonMesh);
+
+            const orbitGeo = new THREE.BufferGeometry();
+            const orbitPoints = [];
+            for(let i=0; i<=32; i++) { 
+                const theta = (i / 32) * Math.PI * 2;
+                orbitPoints.push(new THREE.Vector3(Math.cos(theta)*mData.distance, 0, Math.sin(theta)*mData.distance));
+            }
+            orbitGeo.setFromPoints(orbitPoints);
+            const orbitMat = new THREE.LineBasicMaterial({color: 0x333333, transparent: true, opacity: 0.3});
+            const orbitLine = new THREE.Line(orbitGeo, orbitMat);
+            scene.add(orbitLine);
+
+            const label = document.createElement('div');
+            label.className = 'planet-label';
+            label.innerHTML = `<span style="color:#${mData.color.toString(16).padStart(6,'0')}">${mData.nameZh}</span><br><span style="font-size:9px">${mData.nameEn}</span>`;
+            labelsLayer.appendChild(label);
+
+            moons.push({
+                mesh: moonMesh, data: mData, parent: parentPlanet, orbitLine: orbitLine,
+                angle: Math.random() * Math.PI * 2, labelElement: label
+            });
+        });
+
+        let comet;
+        function createComet() {
+            const cometGeo = new THREE.SphereGeometry(4, 5, 5); 
+            const cometMat = new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0x88ccff, emissiveIntensity: 1.5, flatShading: true });
+            const cometMesh = new THREE.Mesh(cometGeo, cometMat);
+            scene.add(cometMesh);
+
+            const label = document.createElement('div');
+            label.className = 'planet-label';
+            label.innerHTML = `<span style="color:#88ccff">哈雷彗星</span><br><span style="font-size:9px">Halley's Comet</span>`;
+            labelsLayer.appendChild(label);
+
+            const a = 7000; 
+            const e = 0.8; 
+            const c = a * e; 
+            const b = Math.sqrt(a*a - c*c); 
+            
+            const orbitGeo = new THREE.BufferGeometry();
+            const orbitPoints = [];
+            for(let i=0; i<=64; i++) {
+                const theta = (i / 64) * Math.PI * 2;
+                const x = a * Math.cos(theta) - c;
+                const z = b * Math.sin(theta);
+                orbitPoints.push(new THREE.Vector3(x, 0, z));
+            }
+            orbitGeo.setFromPoints(orbitPoints);
+            const orbitMat = new THREE.LineDashedMaterial({color: 0x5588ff, dashSize: 50, gapSize: 30});
+            const orbitLine = new THREE.Line(orbitGeo, orbitMat);
+            orbitLine.computeLineDistances();
+            scene.add(orbitLine);
+
+            const tailGeo = new THREE.ConeGeometry(8, 60, 5);
+            tailGeo.rotateX(Math.PI / 2);
+            const tailMat = new THREE.MeshBasicMaterial({color: 0x88ccff, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending});
+            const tailMesh = new THREE.Mesh(tailGeo, tailMat);
+            cometMesh.add(tailMesh);
+
+            comet = {
+                mesh: cometMesh, a: a, b: b, c: c, angle: 0,
+                labelElement: label, tailMesh: tailMesh
+            };
+        }
+        createComet();
+
+        // --- STREAMING_CHUNK: Space Probes Setup... ---
+        
+        // 1. 建立人類外太空探測器 (航海家系列)
+        const probeData = [
+            { nameZh: '新視野號', nameEn: 'New Horizons', distance: 13500, color: 0xcccccc, angle: 0.5 },
+            { nameZh: '先鋒10號', nameEn: 'Pioneer 10', distance: 15500, color: 0xaaaaaa, angle: 2.1 },
+            { nameZh: '航海家2號', nameEn: 'Voyager 2', distance: 17500, color: 0xdddddd, angle: 3.8 },
+            { nameZh: '航海家1號', nameEn: 'Voyager 1', distance: 19500, color: 0xeeeeee, angle: 5.2 }
+        ];
+
+        const probes = [];
+        probeData.forEach(pData => {
+            const probeGroup = new THREE.Group();
+            
+            const bodyGeo = new THREE.BoxGeometry(4, 4, 4);
+            const bodyMat = new THREE.MeshLambertMaterial({ color: pData.color, emissive: 0x222222, flatShading: true });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            
+            const dishGeo = new THREE.CylinderGeometry(5, 0, 2, 6);
+            dishGeo.rotateX(Math.PI / 2);
+            const dish = new THREE.Mesh(dishGeo, bodyMat);
+            dish.position.set(0, 0, 3);
+            
+            probeGroup.add(body, dish);
+            
+            probeGroup.position.set(
+                Math.cos(pData.angle) * pData.distance,
+                Math.random() * 800 - 400,
+                Math.sin(pData.angle) * pData.distance
+            );
+            probeGroup.lookAt(0, 0, 0);
+            scene.add(probeGroup);
+
+            const label = document.createElement('div');
+            label.className = 'planet-label';
+            label.innerHTML = `<span style="color:#00f3ff; font-weight:bold; font-size:14px;">${pData.nameZh}</span><br><span style="font-size:10px">${pData.nameEn}</span><br><span class="dist-display" style="font-size:11px; color:#fcee0a; text-shadow: 0 0 5px #000;"></span>`;
+            labelsLayer.appendChild(label);
+
+            probes.push({
+                mesh: probeGroup, data: pData, labelElement: label, distSpan: label.querySelector('.dist-display')
+            });
+        });
+
+        // 2. 建立中國航天探測器與太空站
+        const cnProbeData = [
+            { id: 'tiangong', parentIndex: 3, nameZh: '天宮太空站', nameEn: 'Tiangong Station', orbitRadius: 60, color: 0xeeeeee, rotateSpeed: 0.3 }, 
+            { id: 'change', parentIndex: -1, nameZh: '嫦娥六號', nameEn: 'Chang\'e 6', orbitRadius: 25, color: 0xffcc00, rotateSpeed: 0.15 }, 
+            { id: 'tianwen', parentIndex: 4, nameZh: '天問一號', nameEn: 'Tianwen-1', orbitRadius: 40, color: 0xdddddd, rotateSpeed: 0.2 } 
+        ];
+        
+        const cnProbes = []; 
+        cnProbeData.forEach(pData => {
+            const probeGroup = new THREE.Group();
+            
+            const bodyGeo = new THREE.BoxGeometry(3, 3, 3);
+            const bodyMat = new THREE.MeshLambertMaterial({ color: pData.color, emissive: pData.id === 'change' ? 0xaa8800 : 0x222222, flatShading: true });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            probeGroup.add(body);
+            
+            if (pData.id === 'tiangong') {
+                const panelGeo = new THREE.BoxGeometry(15, 1, 4);
+                const panelMat = new THREE.MeshLambertMaterial({ color: 0x336699, emissive: 0x112233 });
+                const panel = new THREE.Mesh(panelGeo, panelMat);
+                probeGroup.add(panel);
+            }
+            
+            let parentMesh = null;
+            if (pData.parentIndex >= 0) {
+                parentMesh = planets[pData.parentIndex].mesh;
+            } else if (pData.id === 'change') {
+                const moon = moons.find(m => m.data.nameEn === 'Moon');
+                if (moon) parentMesh = moon.mesh;
+            }
+            
+            if (parentMesh) {
+                parentMesh.add(probeGroup);
+            }
+
+            const label = document.createElement('div');
+            label.className = 'planet-label';
+            label.innerHTML = `<span style="color:#ff3333; font-weight:bold; font-size:14px;">${pData.nameZh}</span><br><span style="font-size:10px">${pData.nameEn}</span><br><span class="dist-display" style="font-size:11px; color:#fcee0a; text-shadow: 0 0 5px #000;"></span>`;
+            labelsLayer.appendChild(label);
+
+            cnProbes.push({
+                mesh: probeGroup, data: pData, labelElement: label, distSpan: label.querySelector('.dist-display')
+            });
+        });
+
+        // --- STREAMING_CHUNK: Black Hole and Ship Setup... ---
+        
+        const blackHoleGroup = new THREE.Group();
+        blackHoleGroup.visible = false;
+        scene.add(blackHoleGroup);
+
+        const bhGeo = new THREE.SphereGeometry(150, 8, 8);
+        const bhMat = new THREE.MeshBasicMaterial({color: 0x000000});
+        const bhMesh = new THREE.Mesh(bhGeo, bhMat);
+        blackHoleGroup.add(bhMesh);
+
+        const diskGeo = new THREE.RingGeometry(200, 450, 12);
+        const diskMat = new THREE.MeshBasicMaterial({
+            color: 0xff0055, side: THREE.DoubleSide, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending
+        });
+        const diskMesh = new THREE.Mesh(diskGeo, diskMat);
+        diskMesh.rotation.x = Math.PI / 2;
+        blackHoleGroup.add(diskMesh);
+        
+        const bhLight = new THREE.PointLight(0xff0055, 6, 3000);
+        blackHoleGroup.add(bhLight);
+
+        const bhLabel = document.createElement('div');
+        bhLabel.className = 'planet-label';
+        bhLabel.innerHTML = `<span class="planet-name-zh" style="color:#ff0055;">未知黑洞</span><br>Black Hole`;
+        bhLabel.style.display = 'none';
+        labelsLayer.appendChild(bhLabel);
+
+        // 曲速加速特效 (Warp Lines) 數量降至 60 條
+        scene.add(camera); 
+        const warpLineCount = 60; 
+        const warpLineGeo = new THREE.BufferGeometry();
+        const wlPos = new Float32Array(warpLineCount * 6);
+        for(let i = 0; i < warpLineCount; i++) {
+            const x = (Math.random() - 0.5) * 80;
+            const y = (Math.random() - 0.5) * 80;
+            const z = -Math.random() * 200 - 20; 
+            wlPos[i*6] = x; wlPos[i*6+1] = y; wlPos[i*6+2] = z; 
+            wlPos[i*6+3] = x; wlPos[i*6+4] = y; wlPos[i*6+5] = z + 15; 
+        }
+        warpLineGeo.setAttribute('position', new THREE.BufferAttribute(wlPos, 3));
+        const warpLineMat = new THREE.LineBasicMaterial({color: 0x00f3ff, transparent: true, opacity: 0});
+        const warpLines = new THREE.LineSegments(warpLineGeo, warpLineMat);
+        camera.add(warpLines);
+
+        // --- Player Car Setup (極簡白色圓柱體火箭) ---
+        const carGroup = new THREE.Group();
+        scene.add(carGroup);
+
+        // 使用多邊形極低 (分段數 6) 的圓柱體作為飛船，純白光
+        const rocketGeo = new THREE.CylinderGeometry(1.5, 1.5, 12, 6); 
+        rocketGeo.rotateX(Math.PI / 2); 
+        const rocketMat = new THREE.MeshPhongMaterial({ 
+            color: 0xffffff, 
+            emissive: 0xffffff, 
+            emissiveIntensity: 2.0, // 強烈白光自發光
+            flatShading: true
+        });
+        const rocketMesh = new THREE.Mesh(rocketGeo, rocketMat);
+        carGroup.add(rocketMesh);
+
+        // 推進器燈光
+        const engineLight = new THREE.PointLight(0xff4500, 2, 50);
+        engineLight.position.set(0, 0, 6); 
+        carGroup.add(engineLight);
+
+        // 火焰特效 (紅橙交替閃爍)
+        const flameGeo = new THREE.ConeGeometry(1.4, 5, 5); 
+        flameGeo.rotateX(Math.PI / 2); 
+        const flameMat = new THREE.MeshBasicMaterial({
+            color: 0xff4500, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending
+        });
+        const engineFlame = new THREE.Mesh(flameGeo, flameMat);
+        engineFlame.position.set(0, 0, 7); 
+        engineFlame.visible = false;
+        carGroup.add(engineFlame);
+
+        carGroup.position.set(0, 0, 1500);
+
+        // --- STREAMING_CHUNK: Classroom Setup (隱藏彩蛋 - 學校大門) ---
+        
+        const CLASSROOM_OFFSET = new THREE.Vector3(0, 25000, 0); 
+        const classroomGroup = new THREE.Group();
+        classroomGroup.position.copy(CLASSROOM_OFFSET);
+        classroomGroup.scale.set(10, 10, 10);
+        scene.add(classroomGroup);
+
+        // 繪製巨大的 🏫 Emoji 作為學校大門
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 1024;
+        const ctx = canvas.getContext('2d');
+        ctx.font = '800px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🏫', 512, 512); 
+        
+        const emojiTex = new THREE.CanvasTexture(canvas);
+        // 設定顏色低於 Bloom 門檻 (0.6)，確保在異空間內 Emoji 清晰但絕對不發光
+        const emojiMat = new THREE.SpriteMaterial({ map: emojiTex, color: 0x555555, transparent: true });
+        const emojiSprite = new THREE.Sprite(emojiMat);
+        emojiSprite.scale.set(400, 400, 1);
+        emojiSprite.position.set(0, 100, -300); 
+        classroomGroup.add(emojiSprite);
+
+        // 關閉異空間內所有光源，呈現漆黑神祕感 (Bloom也會在主迴圈被強制關閉)
+        const roomLight = new THREE.PointLight(0xffffff, 0.5, 3000); 
+        roomLight.position.set(0, 150, 0);
+        classroomGroup.add(roomLight);
+
+        // --- Game State & Variables ---
+        const state = {
+            velocity: new THREE.Vector3(), speed: 30, boostAmount: 100, isBoosting: false,
+            blackHoleActive: false, trappedInBlackHole: false, escapeProgress: 0, blackHoleTimer: 0,
+            isTurningAround: false, turnAroundQuat: new THREE.Quaternion(), inClassroom: false
+        };
+        const UNIVERSE_RADIUS = 25000; 
+
+        const keys = { forward: false, backward: false, left: false, right: false, rollLeft: false, rollRight: false, boost: false, brake: false };
+        const boostBar = document.getElementById('boost-bar');
+        const boostOverlay = document.getElementById('boost-overlay');
+        const loadingScreen = document.getElementById('loading');
+        const bhWarningUI = document.getElementById('blackhole-warning');
+        const bhEscapeBar = document.getElementById('escape-bar');
+        const turnaroundWarningUI = document.getElementById('turnaround-warning');
+
+        setTimeout(() => { loadingScreen.style.opacity = 0; }, 500);
+
+        // --- STREAMING_CHUNK: Input Controls... ---
+
+        window.addEventListener('keydown', (e) => {
+            switch(e.code) {
+                case 'KeyW': case 'ArrowUp': keys.forward = true; break;
+                case 'KeyS': case 'ArrowDown': keys.backward = true; break;
+                case 'KeyA': case 'ArrowLeft': keys.left = true; break;
+                case 'KeyD': case 'ArrowRight': keys.right = true; break;
+                case 'KeyQ': keys.rollLeft = true; break;
+                case 'KeyE': keys.rollRight = true; break;
+                case 'Space': keys.boost = true; break;
+                case 'ShiftLeft': keys.brake = true; break;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            switch(e.code) {
+                case 'KeyW': case 'ArrowUp': keys.forward = false; break;
+                case 'KeyS': case 'ArrowDown': keys.backward = false; break;
+                case 'KeyA': case 'ArrowLeft': keys.left = false; break;
+                case 'KeyD': case 'ArrowRight': keys.right = false; break;
+                case 'KeyQ': keys.rollLeft = false; break;
+                case 'KeyE': keys.rollRight = false; break;
+                case 'Space': keys.boost = false; break;
+                case 'ShiftLeft': keys.brake = false; break;
+            }
+        });
+
+        const btnBoost = document.getElementById('btn-boost');
+        const btnBrake = document.getElementById('btn-brake');
+        const addTouch = (elem, key) => {
+            elem.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; elem.classList.add('active'); }, {passive: false});
+            elem.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; elem.classList.remove('active'); }, {passive: false});
+            elem.addEventListener('mousedown', (e) => { keys[key] = true; elem.classList.add('active'); });
+            elem.addEventListener('mouseup', (e) => { keys[key] = false; elem.classList.remove('active'); });
+            elem.addEventListener('mouseleave', (e) => { keys[key] = false; elem.classList.remove('active'); });
+        };
+        addTouch(btnBoost, 'boost');
+        addTouch(btnBrake, 'brake');
+
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        const dragSensitivity = 0.003;
+
+        renderer.domElement.addEventListener('pointerdown', (e) => {
+            isDragging = true;
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+
+        renderer.domElement.addEventListener('pointermove', (e) => {
+            if (isDragging && !state.trappedInBlackHole && !state.isTurningAround) {
+                const deltaMove = { x: e.clientX - previousMousePosition.x, y: e.clientY - previousMousePosition.y };
+                carGroup.rotateY(-deltaMove.x * dragSensitivity);
+                carGroup.rotateX(-deltaMove.y * dragSensitivity);
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            }
+        });
+
+        renderer.domElement.addEventListener('pointerup', () => { isDragging = false; });
+        renderer.domElement.addEventListener('pointerleave', () => { isDragging = false; });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- STREAMING_CHUNK: Main Update Loop... ---
+
+        const clock = new THREE.Clock();
+
+        function updateLabel(obj) {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            
+            const pos = new THREE.Vector3();
+            obj.mesh.getWorldPosition(pos);
+            pos.project(camera);
+            
+            if (pos.z > 1) { 
+                obj.labelElement.style.display = 'none';
+                return;
+            }
+
+            const x = (pos.x * .5 + .5) * w;
+            const y = (pos.y * -.5 + .5) * h;
+            
+            obj.labelElement.style.display = 'block';
+            obj.labelElement.style.left = `${x}px`;
+            obj.labelElement.style.top = `${y}px`;
+        }
+
+        function updatePhysics(delta) {
+            const dt = Math.min(delta, 0.1);
+
+            // 異空間 (郭怡雅神父紀念學校) 的進出判定邏輯
+            if (!state.inClassroom) {
+                const earthPos = new THREE.Vector3();
+                planets[3].mesh.getWorldPosition(earthPos);
+                
+                // 放大判定範圍至 150，防止穿模
+                if (carGroup.position.distanceTo(earthPos) < 150) {
+                    state.inClassroom = true;
+                    carGroup.position.copy(CLASSROOM_OFFSET).add(new THREE.Vector3(0, 100, 600));
+                    const lookMatrix = new THREE.Matrix4().lookAt(carGroup.position, CLASSROOM_OFFSET, new THREE.Vector3(0, 1, 0));
+                    carGroup.quaternion.setFromRotationMatrix(lookMatrix);
+                    
+                    state.speed = 30; // 進入時強制降速
+                    state.isTurningAround = false;
+                    keys.boost = false; 
+                    
+                    document.getElementById('classroom-title').style.opacity = 1;
+                }
+            } else {
+                const doorWorldPos = new THREE.Vector3();
+                emojiSprite.getWorldPosition(doorWorldPos);
+                const distToDoor = carGroup.position.distanceTo(doorWorldPos);
+                
+                // 撞擊學校大門 (Emoji) 或飛離太遠，則返回太陽系
+                if (distToDoor < 800 || carGroup.position.distanceTo(CLASSROOM_OFFSET) > 3000) {
+                    state.inClassroom = false;
+                    carGroup.position.set(0, 0, 1500); 
+                    carGroup.lookAt(new THREE.Vector3(0, 0, 0));
+                    document.getElementById('classroom-title').style.opacity = 0;
+                }
+            }
+
+            const distFromSun = carGroup.position.length();
+            if (distFromSun > UNIVERSE_RADIUS && !state.isTurningAround && !state.trappedInBlackHole && !state.inClassroom) {
+                state.isTurningAround = true;
+                const targetRotationMatrix = new THREE.Matrix4().lookAt(carGroup.position, new THREE.Vector3(0,0,0), new THREE.Vector3(0, 1, 0));
+                state.turnAroundQuat.setFromRotationMatrix(targetRotationMatrix);
+            }
+
+            if (state.isTurningAround) {
+                carGroup.quaternion.slerp(state.turnAroundQuat, 1.5 * dt);
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(carGroup.quaternion);
+                const toCenter = new THREE.Vector3(0,0,0).sub(carGroup.position).normalize();
+                if (forward.dot(toCenter) > 0.98) state.isTurningAround = false; 
+            }
+
+            if (!state.blackHoleActive) {
+                if (blackHoleGroup.visible && blackHoleGroup.scale.x > 0.01) {
+                    blackHoleGroup.scale.subScalar(5 * dt);
+                    if(blackHoleGroup.scale.x <= 0.01) blackHoleGroup.visible = false;
+                }
+                
+                state.blackHoleTimer += dt;
+                if (state.blackHoleTimer > 25) { 
+                    state.blackHoleTimer = 0;
+                    state.blackHoleActive = true;
+                    state.trappedInBlackHole = false;
+                    state.escapeProgress = 0;
+                    
+                    blackHoleGroup.visible = true;
+                    bhLabel.style.display = 'block';
+                    blackHoleGroup.scale.set(0.01, 0.01, 0.01);
+                    
+                    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(carGroup.quaternion);
+                    blackHoleGroup.position.copy(carGroup.position).add(forward.multiplyScalar(3500));
+                }
+            } else {
+                diskMesh.rotation.z += 1.5 * dt;
+                if(blackHoleGroup.scale.x < 1) blackHoleGroup.scale.addScalar(2 * dt);
+
+                const distToBH = carGroup.position.distanceTo(blackHoleGroup.position);
+                
+                if (distToBH < 1500 && !state.trappedInBlackHole) {
+                    state.trappedInBlackHole = true;
+                    state.isTurningAround = false;
+                }
+
+                if (state.trappedInBlackHole) {
+                    const pullDir = blackHoleGroup.position.clone().sub(carGroup.position).normalize();
+                    if (distToBH > 200) { 
+                        // 黑洞吸力減弱至 270
+                        carGroup.position.addScaledVector(pullDir, 270 * dt);
+                    }
+                    
+                    const lookMatrix = new THREE.Matrix4().lookAt(carGroup.position, blackHoleGroup.position, new THREE.Vector3(0, 1, 0));
+                    const targetQ = new THREE.Quaternion().setFromRotationMatrix(lookMatrix);
+                    carGroup.quaternion.slerp(targetQ, 5 * dt);
+
+                    if (keys.boost) state.escapeProgress += dt;
+                    else state.escapeProgress = Math.max(0, state.escapeProgress - 0.8 * dt);
+
+                    if (state.escapeProgress >= 5.0) {
+                        state.trappedInBlackHole = false;
+                        state.blackHoleActive = false;
+                        bhLabel.style.display = 'none';
+                        state.boostAmount = 100;
+                    }
+                } else if (distToBH > 9000) {
+                    state.blackHoleActive = false;
+                    bhLabel.style.display = 'none';
+                }
+            }
+
+            let targetSpeed = 30; // 基礎巡航速度
+            let rotSpeed = 1.8; 
+            
+            if (state.trappedInBlackHole) {
+                targetSpeed = 0; rotSpeed = 0; 
+            }
+            if (keys.brake) targetSpeed = 0; 
+
+            if (keys.boost && (state.boostAmount > 0 || state.trappedInBlackHole)) {
+                state.isBoosting = true;
+                // 將最高速度上限設置為 1200 KM/S
+                targetSpeed = state.trappedInBlackHole ? 0 : 1200; 
+                if (!state.trappedInBlackHole) state.boostAmount -= 15 * dt; 
+                
+                targetFov = 110; 
+                engineLight.intensity = 6;
+                engineLight.color.setHex(0xff4500); 
+                
+                // 動態紅橙色交替閃爍火焰
+                engineFlame.visible = true;
+                engineFlame.scale.set(1 + Math.random()*0.3, 1.5 + Math.random()*0.8, 1 + Math.random()*0.3);
+                engineFlame.material.color.setHex(Math.random() > 0.5 ? 0xff3300 : 0xff6600); 
+                
+                boostOverlay.style.opacity = 0.4;
+                rotSpeed = 0.8; 
+            } else {
+                state.isBoosting = false;
+                targetFov = 75;
+                engineLight.intensity = 2;
+                engineFlame.visible = false; 
+                if (state.boostAmount < 100 && !state.trappedInBlackHole) state.boostAmount += 5 * dt;
+            }
+            if (state.boostAmount < 0) state.boostAmount = 0;
+            if (state.boostAmount > 100) state.boostAmount = 100;
+
+            state.speed = THREE.MathUtils.lerp(state.speed, targetSpeed, 3 * dt);
+
+            if (!state.isTurningAround && !state.trappedInBlackHole) {
+                if (keys.forward) carGroup.rotateX(-rotSpeed * dt);
+                if (keys.backward) carGroup.rotateX(rotSpeed * dt);
+                if (keys.left) carGroup.rotateY(rotSpeed * dt);
+                if (keys.right) carGroup.rotateY(-rotSpeed * dt);
+                if (keys.rollLeft) carGroup.rotateZ(rotSpeed * dt);
+                if (keys.rollRight) carGroup.rotateZ(-rotSpeed * dt);
+            }
+
+            if (!state.trappedInBlackHole) {
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(carGroup.quaternion);
+                carGroup.position.addScaledVector(forward, state.speed * dt);
+                
+                // 行星引力捕捉系統：不加速且不煞車時，若靠近行星會被帶入軌道
+                if (!keys.boost && !keys.brake && !state.inClassroom) {
+                    for (let i = 0; i < planets.length; i++) {
+                        const p = planets[i];
+                        const pWorldPos = new THREE.Vector3();
+                        p.mesh.getWorldPosition(pWorldPos);
+                        const distToPlanet = carGroup.position.distanceTo(pWorldPos);
+                        
+                        // 距離小於行星半徑 + 150，則被引力捕獲並跟著公轉
+                        if (distToPlanet < p.data.radius + 150 && p.data.speed > 0) {
+                            const orbitSpeed = p.data.speed * 0.1;
+                            const currentAngle = p.angle;
+                            const nextAngle = currentAngle + orbitSpeed * dt;
+                            const moveVec = new THREE.Vector3(
+                                (Math.cos(nextAngle) - Math.cos(currentAngle)) * p.data.distance, 
+                                0, 
+                                (Math.sin(nextAngle) - Math.sin(currentAngle)) * p.data.distance
+                            );
+                            carGroup.position.add(moveVec);
+                            break; 
+                        }
+                    }
+                }
+            }
+            
+            planets.forEach(p => {
+                if (p.data.speed > 0) {
+                    p.angle += p.data.speed * 0.1 * dt;
+                    p.mesh.position.x = Math.cos(p.angle) * p.data.distance;
+                    p.mesh.position.z = Math.sin(p.angle) * p.data.distance;
+                }
+            });
+
+            moons.forEach(m => {
+                m.angle += m.data.speed * dt;
+                m.mesh.position.x = m.parent.position.x + Math.cos(m.angle) * m.data.distance;
+                m.mesh.position.z = m.parent.position.z + Math.sin(m.angle) * m.data.distance;
+                m.orbitLine.position.copy(m.parent.position);
+            });
+
+            if (comet) {
+                let r = comet.a * (1 - 0.8 * 0.8) / (1 + 0.8 * Math.cos(comet.angle));
+                let cometSpeed = (300 / r) * dt;
+                comet.angle += cometSpeed;
+                comet.mesh.position.x = comet.a * Math.cos(comet.angle) - comet.c;
+                comet.mesh.position.z = comet.b * Math.sin(comet.angle);
+                comet.mesh.lookAt(new THREE.Vector3(0,0,0));
+            }
+
+            planets.forEach(updateLabel);
+            moons.forEach(updateLabel);
+            if(comet) updateLabel(comet);
+            if(state.blackHoleActive) updateLabel({ mesh: blackHoleGroup, labelElement: bhLabel });
+
+            const earthPos = new THREE.Vector3();
+            planets[3].mesh.getWorldPosition(earthPos);
+
+            probes.forEach(probe => {
+                updateLabel(probe);
+                const probeWorldPos = new THREE.Vector3();
+                probe.mesh.getWorldPosition(probeWorldPos);
+                const distToEarth = probeWorldPos.distanceTo(earthPos);
+                const distBillionKm = (distToEarth * 0.0135).toFixed(1);
+                probe.distSpan.innerText = `距地球: ${distBillionKm} 億公里`;
+            });
+
+            // 更新中國航天探測器軌道與距離 (速度已減慢十倍)
+            if (typeof cnProbes !== 'undefined') {
+                cnProbes.forEach(probe => {
+                    probe.data.angle = (probe.data.angle || 0) + probe.data.rotateSpeed * dt;
+                    const r = probe.data.orbitRadius;
+                    probe.mesh.position.x = Math.cos(probe.data.angle) * r;
+                    probe.mesh.position.z = Math.sin(probe.data.angle) * r;
+                    probe.mesh.lookAt(0, 0, 0); 
+
+                    updateLabel(probe);
+                    
+                    const probeWorldPos = new THREE.Vector3();
+                    probe.mesh.getWorldPosition(probeWorldPos);
+                    const distToEarth = probeWorldPos.distanceTo(earthPos);
+                    
+                    if (probe.data.id === 'tiangong') {
+                        probe.distSpan.innerText = `高度: 約 400 公里 (近地軌道)`;
+                    } else if (probe.data.id === 'change') {
+                        probe.distSpan.innerText = `距地球: 約 38 萬公里`;
+                    } else {
+                        const distMillion = (distToEarth * 0.0135 * 10000).toFixed(0); 
+                        probe.distSpan.innerText = `距地球: ${distMillion} 萬公里`;
+                    }
+                });
+            }
+
+            if (state.trappedInBlackHole) {
+                bhWarningUI.style.display = 'block';
+                bhEscapeBar.style.width = `${(state.escapeProgress / 5.0) * 100}%`;
+            } else {
+                bhWarningUI.style.display = 'none';
+            }
+            turnaroundWarningUI.style.display = state.isTurningAround ? 'block' : 'none';
+        }
+
+        function updateCamera(dt) {
+            camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, 5 * dt);
+            camera.updateProjectionMatrix();
+
+            const idealOffset = new THREE.Vector3(0, 15, 50); 
+            idealOffset.applyQuaternion(carGroup.quaternion);
+            idealOffset.add(carGroup.position);
+
+            const idealLookAt = new THREE.Vector3(0, 0, -100);
+            idealLookAt.applyQuaternion(carGroup.quaternion);
+            idealLookAt.add(carGroup.position);
+
+            camera.position.lerp(idealOffset, 8 * dt);
+            const shipUp = new THREE.Vector3(0, 1, 0).applyQuaternion(carGroup.quaternion);
+            const targetRotation = new THREE.Quaternion().setFromRotationMatrix(
+                new THREE.Matrix4().lookAt(camera.position, idealLookAt, shipUp)
+            );
+            camera.quaternion.slerp(targetRotation, 10 * dt);
+
+            if (state.isBoosting && !state.trappedInBlackHole) {
+                warpLineMat.opacity = THREE.MathUtils.lerp(warpLineMat.opacity, 0.6, 5 * dt);
+                const pos = warpLines.geometry.attributes.position.array;
+                for(let i = 0; i < warpLineCount; i++) {
+                    pos[i*6+2] += 1500 * dt; 
+                    pos[i*6+5] += 1500 * dt; 
+                    if (pos[i*6+2] > 20) { 
+                        const newZ = -150 - Math.random() * 150;
+                        pos[i*6+2] = newZ;
+                        pos[i*6+5] = newZ + 15 + Math.random() * 10;
+                    }
+                }
+                warpLines.geometry.attributes.position.needsUpdate = true;
+            } else {
+                warpLineMat.opacity = THREE.MathUtils.lerp(warpLineMat.opacity, 0, 10 * dt);
+            }
+        }
+
+        // --- Main Game Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            updatePhysics(delta);
+            updateCamera(delta);
+
+            document.getElementById('speed-value').innerText = Math.floor(state.speed);
+            boostBar.style.width = state.boostAmount + '%';
+            if (state.boostAmount < 20) boostBar.style.background = '#ff0000';
+            else boostBar.style.background = '#ff00ea';
+
+            // 動態控制光暈：確保進入異空間時徹底關閉 Bloom，呈現神祕無光的氛圍
+            if (state.inClassroom) {
+                bloomPass.strength = 0.0;
+            } else {
+                bloomPass.strength = 1.8;
+            }
+
+            composer.render();
+        }
+
+        animate();
+    </script>
+</body>
+</html>
