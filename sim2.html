@@ -1,0 +1,1075 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>模擬城市：深水埗 (陳主任製作 - 完整災難與第四級圖書館版)</title>
+<style>
+  * { box-sizing: border-box; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Courier New', monospace; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden; position: fixed; background: #18181c;
+  }
+  body { display: flex; }
+
+  /* 右上角 [陳主任製作] 標籤 */
+  #author-badge {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: #d4af37;
+    color: #000;
+    font-weight: bold;
+    font-size: 13px;
+    padding: 6px 14px;
+    border: 2px solid #fff;
+    box-shadow: 3px 3px 0 #000;
+    z-index: 100;
+    letter-spacing: 1.5px;
+    pointer-events: none;
+  }
+
+  /* 頂端火警警告橫幅 (Lv2 警報) */
+  #alert-banner {
+    position: absolute;
+    top: -60px;
+    left: 280px;
+    right: 180px;
+    background: #b71c1c;
+    color: #fff;
+    font-weight: bold;
+    font-size: 13px;
+    padding: 10px 16px;
+    border: 2px solid #ffeb3b;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    z-index: 200;
+    text-align: center;
+    letter-spacing: 1px;
+    transition: top 0.4s ease-out;
+  }
+  #alert-banner.show {
+    top: 12px;
+  }
+
+  /* 復古側邊欄 */
+  #ui-panel {
+    width: 275px;
+    min-width: 275px;
+    background: #c0c0c0;
+    border-right: 3px solid #404040;
+    display: flex;
+    flex-direction: column;
+    padding: 6px;
+    box-shadow: inset 1px 1px #fff, inset -1px -1px #808080;
+    z-index: 10;
+    font-size: 11px;
+    gap: 4px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .inset-box {
+    background: #e0e0e0;
+    border: 2px inset #808080;
+    padding: 4px 6px;
+  }
+
+  .header {
+    background: #800000;
+    color: #fff;
+    font-weight: bold;
+    padding: 4px;
+    text-align: center;
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+
+  /* RCI 儀表 */
+  .rci-container {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    height: 38px;
+    background: #111;
+    border: 2px inset #808080;
+    padding: 2px;
+  }
+  .rci-bar-wrap { display: flex; flex-direction: column; align-items: center; width: 25%; }
+  .rci-bar { width: 14px; background: #555; transition: height 0.3s; }
+  .rci-label { font-size: 9px; font-weight: bold; margin-top: 1px; }
+  #r-bar { background: #00e676; }
+  #c-bar { background: #2979ff; }
+  #i-bar { background: #ffd600; }
+
+  /* 按鈕網格 */
+  .tools-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px;
+  }
+
+  .view-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px;
+  }
+
+  button.classic-btn {
+    background: #c0c0c0;
+    border: 2px outset #fff;
+    padding: 5px 1px;
+    min-height: 36px;
+    font-size: 9.5px;
+    font-weight: bold;
+    cursor: pointer;
+    text-align: center;
+    line-height: 1.2;
+    touch-action: manipulation;
+  }
+  button.classic-btn:active, button.classic-btn.active {
+    border: 2px inset #fff;
+    background: #a0a0a0;
+  }
+
+  .tax-box label { display: flex; justify-content: space-between; font-weight: bold; }
+  input[type=range] { width: 100%; height: 20px; }
+
+  #game-canvas {
+    flex: 1;
+    touch-action: none;
+    cursor: crosshair;
+    image-rendering: pixelated;
+  }
+</style>
+</head>
+<body>
+
+<div id="author-badge">陳主任製作</div>
+
+<!-- 頂端火警警告橫幅 -->
+<div id="alert-banner">
+  ⚠️ 警告：城市已達第二級！火警風險急升，請儘速興建深水埗消防局以策安全！
+</div>
+
+<div id="ui-panel">
+  <div class="header">模擬城市：深水埗</div>
+  
+  <div class="inset-box">
+    <div>財政庫房: <b>$<span id="stat-funds">35000</span></b></div>
+    <div>市區人口: <b><span id="stat-pop">0</span> 人</b></div>
+    <div>城市等級: <b><span id="stat-tier" style="color:#b71c1c;">舊式市鎮 (Lv1)</span></b></div>
+    <div>火災風險: <b><span id="stat-fire" style="color:green;">安全</span></b></div>
+    <div>設施統計: <b><span id="stat-facility">學0|警0|消0</span></b></div>
+    <div>市民滿意: <b><span id="stat-happy" style="color:green;">80%</span></b></div>
+    <div style="background:#fff3e0; padding:2px; margin-top:2px; border:1px solid #ffb74d;">
+      公用結算倒數: <b><span id="stat-timer" style="color:#e65100;">30</span> 秒</b><br>
+      每30秒營運費: <b>$<span id="stat-maint">0</span></b>
+    </div>
+    <div>視角方位: <b><span id="view-dir">北 (0°)</span></b></div>
+  </div>
+
+  <div class="view-grid">
+    <button class="classic-btn" id="btn-rot-ccw">↺ 逆時針 (Q)</button>
+    <button class="classic-btn" id="btn-rot-cw">↻ 順時針 (E)</button>
+  </div>
+
+  <div class="rci-container">
+    <div class="rci-bar-wrap">
+      <div id="r-bar" class="rci-bar" style="height: 20px;"></div>
+      <div class="rci-label" style="color:#00e676;">唐樓(R)</div>
+    </div>
+    <div class="rci-bar-wrap">
+      <div id="c-bar" class="rci-bar" style="height: 10px;"></div>
+      <div class="rci-label" style="color:#2979ff;">商戶(C)</div>
+    </div>
+    <div class="rci-bar-wrap">
+      <div id="i-bar" class="rci-bar" style="height: 35px;"></div>
+      <div class="rci-label" style="color:#ffd600;">工廠(I)</div>
+    </div>
+  </div>
+
+  <div class="inset-box tax-box">
+    <label>市政地稅率: <span id="tax-val">8%</span></label>
+    <input type="range" id="tax-slider" min="0" max="20" value="8">
+  </div>
+
+  <div class="tools-grid">
+    <button class="classic-btn active" data-tool="road">馬路街道<br>$10</button>
+    <button class="classic-btn" data-tool="res">普通唐樓(R)<br>$100</button>
+    <button class="classic-btn" data-tool="lux" style="color:#00796b;">高級住宅(豪宅)<br>$800</button>
+    <button class="classic-btn" data-tool="com">地舖商場(C)<br>$100</button>
+    <button class="classic-btn" data-tool="ind">輕工業區(I)<br>$100</button>
+    <button class="classic-btn" data-tool="water">抽水設施 🚰<br>$500 [30秒/$50]</button>
+    <button class="classic-btn" data-tool="spk">街角小公園 🌳<br>$50</button>
+    
+    <!-- 體育設施 (純淨色+Emoji) -->
+    <button class="classic-btn" data-tool="bball" style="color:#0277bd;">籃球場(2格)🏀<br>$500</button>
+    <button class="classic-btn" data-tool="mpark" style="color:#2e7d32;">楓樹街球場(6格)⚽<br>$300</button>
+    <button class="classic-btn" data-tool="stadium" style="color:#b71c1c;">田徑運動場(6格)🏃<br>$3000</button>
+
+    <!-- 4格市政與公用設施 -->
+    <button class="classic-btn" data-tool="power" style="color:#d84315;">發電廠(4格) ⚡<br>$2000 [30秒/$500]</button>
+    <button class="classic-btn" data-tool="police" style="color:#0d47a1;">深水埗警署(4格)👮<br>$2000 [30秒/$300]</button>
+    <button class="classic-btn" data-tool="fire" style="color:#e64a19;">深水埗消防局(4格)🚒<br>$2500 [30秒/$1000]</button>
+    <button class="classic-btn" data-tool="sch1" style="color:#880e4f;">深水埔小學(4格)🏫<br>$3000 [30秒/$300]</button>
+    <button class="classic-btn" data-tool="sch2" style="color:#4a148c;">郭怡雅小學(4格)🏫<br>$3000 [30秒/$300]</button>
+    <button class="classic-btn" data-tool="lib" style="color:#1b5e20;">深水埗圖書館(4格)📚<br>$4000 [30秒/$1000]</button>
+
+    <button class="classic-btn" data-tool="dozer" style="grid-column: span 2; color:#b71c1c;">舊區清拆 / 剷除焦土 (推土機) $5</button>
+  </div>
+
+  <div class="inset-box" style="font-size:8.5px; line-height: 1.3;">
+    <b>終極市政綱要:</b><br>
+    • <b>消防安全</b>：第2級需1間消防局；第3級需3間！否則每分鐘有1%機會引發火災燒毀區域變成黑炭，需用推土機剷平重建！<br>
+    • <b>第四級（圖書館）</b>：興建深水埗圖書館後進階第4級，所有住宅深度融合，化身超高雙子天際摩天大樓！
+  </div>
+</div>
+
+<canvas id="game-canvas"></canvas>
+
+<script>
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+
+const MAP_SIZE = 36;
+const TILE_W = 44; 
+const TILE_H = 22;
+
+let camX = 0, camY = 80;
+let rotation = 0;
+
+let currentTool = 'road';
+let funds = 35000;
+let population = 0;
+let happiness = 80;
+let overallCrimeScore = 0;
+let taxRate = 0.08;
+let tickCount = 0;
+let utilityTimer = 30;
+let fireCheckTimer = 60; // 每 60 秒火警機率檢測
+let animTimer = 0;
+let hasWarnedLv2 = false;
+
+let demandR = 25, demandC = 10, demandI = 40;
+
+const COSTS = {
+  road: 10, res: 100, lux: 800, com: 100, ind: 100,
+  water: 500, spk: 50, bball: 500, mpark: 300, stadium: 3000,
+  power: 2000, police: 2000, fire: 2500, sch1: 3000, sch2: 3000, lib: 4000, dozer: 5
+};
+
+// 建築物類型:
+// 0:荒地, 1:道路, 2:普通唐樓, 3:商業, 4:工業, 6:抽水設施, 7:小公園, 10:高級住宅
+// 5:發電廠(2x2), 8:警署(2x2), 9:深水埔小學(2x2), 11:郭怡雅小學(2x2), 15:消防局(2x2), 16:深水埗圖書館(2x2)
+// 12:楓樹街球場(3x2), 13:籃球場(2x1), 14:田徑運動場(3x2)
+// 99:火災燒毀後的黑炭焦土 (Burnt Ruin)
+const map = [];
+for (let y = 0; y < MAP_SIZE; y++) {
+  map[y] = [];
+  for (let x = 0; x < MAP_SIZE; x++) {
+    map[y][x] = {
+      type: 0, level: 0, powered: false, watered: false,
+      hasRoad: false, hasPolice: false, crimeLevel: 0, abandoned: false,
+      merged: false, deepMerged: false, isOrigin: false, rootX: x, rootY: y
+    };
+  }
+}
+
+function resize() {
+  const panelW = document.getElementById('ui-panel').offsetWidth;
+  canvas.width = window.innerWidth - panelW;
+  canvas.height = window.innerHeight;
+  camX = canvas.width / 2;
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+resize();
+
+// 視角轉換
+function toRotatedGrid(gx, gy) {
+  const max = MAP_SIZE - 1;
+  if (rotation === 1) return { rx: gy, ry: max - gx };
+  if (rotation === 2) return { rx: max - gx, ry: max - gy };
+  if (rotation === 3) return { rx: max - gy, ry: gx };
+  return { rx: gx, ry: gy };
+}
+
+function fromRotatedGrid(rx, ry) {
+  const max = MAP_SIZE - 1;
+  if (rotation === 1) return { gx: max - ry, gy: rx };
+  if (rotation === 2) return { gx: max - rx, gy: max - ry };
+  if (rotation === 3) return { gx: ry, gy: max - rx };
+  return { gx: rx, gy: ry };
+}
+
+function rotatedGridToScreen(rx, ry) {
+  return {
+    x: (rx - ry) * (TILE_W / 2) + camX,
+    y: (rx + ry) * (TILE_H / 2) + camY
+  };
+}
+
+function screenToRotatedGrid(sx, sy) {
+  const x = sx - camX;
+  const y = sy - camY;
+  const rx = Math.floor((x / (TILE_W / 2) + y / (TILE_H / 2)) / 2);
+  const ry = Math.floor((y / (TILE_H / 2) - (x / (TILE_W / 2))) / 2);
+  return { rx, ry };
+}
+
+// 基礎菱形格
+function drawIsoTile(x, y, color, strokeColor = '#24521e') {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + TILE_W / 2, y + TILE_H / 2);
+  ctx.lineTo(x, y + TILE_H);
+  ctx.lineTo(x - TILE_W / 2, y + TILE_H / 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+// 自動道路
+function drawRoadWithMarkings(x, y, gx, gy) {
+  drawIsoTile(x, y, '#3c3c3c', '#1f1f1f');
+  const rPos = toRotatedGrid(gx, gy);
+  const checkNeighbor = (drx, dry) => {
+    const nRot = { rx: rPos.rx + drx, ry: rPos.ry + dry };
+    if (nRot.rx >= 0 && nRot.rx < MAP_SIZE && nRot.ry >= 0 && nRot.ry < MAP_SIZE) {
+      const orig = fromRotatedGrid(nRot.rx, nRot.ry);
+      return map[orig.gy][orig.gx].type === 1;
+    }
+    return false;
+  };
+
+  const topC = checkNeighbor(0, -1), btmC = checkNeighbor(0, 1);
+  const leftC = checkNeighbor(-1, 0), rightC = checkNeighbor(1, 0);
+  const cx = x, cy = y + TILE_H / 2;
+
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([2, 2]);
+  ctx.beginPath();
+
+  if (!topC && !btmC && !leftC && !rightC) {
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(cx - 1.5, cy - 1.5, 3, 3);
+    return;
+  }
+  if (topC) { ctx.moveTo(cx, cy); ctx.lineTo(cx + TILE_W / 4, cy - TILE_H / 4); }
+  if (btmC) { ctx.moveTo(cx, cy); ctx.lineTo(cx - TILE_W / 4, cy + TILE_H / 4); }
+  if (leftC) { ctx.moveTo(cx, cy); ctx.lineTo(cx - TILE_W / 4, cy - TILE_H / 4); }
+  if (rightC) { ctx.moveTo(cx, cy); ctx.lineTo(cx + TILE_W / 4, cy + TILE_H / 4); }
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// 3D 立方體建築
+function drawBuildingBlock(x, y, w, h, topColor, sideColor1, sideColor2) {
+  ctx.fillStyle = sideColor1;
+  ctx.beginPath();
+  ctx.moveTo(x - w / 2, y + h / 4);
+  ctx.lineTo(x, y + h / 2);
+  ctx.lineTo(x, y + h / 2 - h);
+  ctx.lineTo(x - w / 2, y + h / 4 - h);
+  ctx.fill();
+
+  ctx.fillStyle = sideColor2;
+  ctx.beginPath();
+  ctx.moveTo(x, y + h / 2);
+  ctx.lineTo(x + w / 2, y + h / 4);
+  ctx.lineTo(x + w / 2, y + h / 4 - h);
+  ctx.lineTo(x, y + h / 2 - h);
+  ctx.fill();
+
+  ctx.fillStyle = topColor;
+  ctx.beginPath();
+  ctx.moveTo(x, y - h);
+  ctx.lineTo(x + w / 2, y + h / 4 - h);
+  ctx.lineTo(x, y + h / 2 - h);
+  ctx.lineTo(x - w / 2, y + h / 4 - h);
+  ctx.fill();
+}
+
+function drawFacilityEmoji(x, y, buildingH, emoji) {
+  const bob = Math.sin(animTimer * 0.8) * 1.5;
+  ctx.font = '15px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, x, y - buildingH - 8 + bob);
+}
+
+function drawWarningIcons(x, y, buildingH, lacksPower, lacksWater, hasCrime) {
+  const bob = Math.sin(animTimer * 1.5) * 2;
+  const basePosY = y - buildingH - 8 + bob;
+  let icons = [];
+  if (lacksPower) icons.push('⚡');
+  if (lacksWater) icons.push('💧');
+  if (hasCrime) icons.push('🚨');
+
+  const startX = x - ((icons.length - 1) * 12) / 2;
+  icons.forEach((icon, idx) => {
+    const curX = startX + idx * 12;
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(curX - 6, basePosY - 6, 12, 13);
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(icon, curX, basePosY);
+  });
+}
+
+function getSouthmostChecker(origX, origY, spanW, spanH) {
+  let coords = [];
+  for (let dy = 0; dy < spanH; dy++) {
+    for (let dx = 0; dx < spanW; dx++) {
+      coords.push(toRotatedGrid(origX + dx, origY + dy));
+    }
+  }
+  const maxR = coords.sort((a,b) => (a.rx + a.ry) - (b.rx + b.ry))[coords.length - 1];
+  return (rx, ry) => (rx === maxR.rx && ry === maxR.ry);
+}
+
+// 主渲染迴圈
+function render() {
+  animTimer += 0.08;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  for (let ry = 0; ry < MAP_SIZE; ry++) {
+    for (let rx = 0; rx < MAP_SIZE; rx++) {
+      const orig = fromRotatedGrid(rx, ry);
+      const gx = orig.gx, gy = orig.gy;
+      const p = rotatedGridToScreen(rx, ry);
+      const cell = map[gy][gx];
+
+      // 底層地皮
+      drawIsoTile(p.x, p.y, '#3d6e35');
+
+      let bHeight = 0;
+
+      // 火警燒毀的黑炭焦土地塊
+      if (cell.type === 99) {
+        drawIsoTile(p.x, p.y, '#1c1c1c', '#000000'); // 焦黑地面
+        ctx.fillStyle = '#424242';
+        ctx.fillRect(p.x - 3, p.y + 2, 6, 4);
+        drawFacilityEmoji(p.x, p.y, 4, '🔥');
+        continue;
+      }
+
+      if (cell.type === 1) {
+        drawRoadWithMarkings(p.x, p.y, gx, gy);
+      }
+      else if (cell.type === 6) { // 抽水
+        bHeight = 22;
+        drawBuildingBlock(p.x, p.y, 22, bHeight, '#26c6da', '#0097a7', '#006064');
+        drawFacilityEmoji(p.x, p.y, bHeight, '🚰');
+      }
+      else if (cell.type === 7) { // 小公園
+        drawIsoTile(p.x, p.y, '#2e7d32');
+        drawFacilityEmoji(p.x, p.y, 2, '🌳');
+      }
+      else if (cell.type === 13) { // 籃球場 (純藍)
+        drawIsoTile(p.x, p.y, '#0277bd', '#01579b');
+        const isSouth = getSouthmostChecker(cell.rootX, cell.rootY, 2, 1);
+        if (isSouth(rx, ry)) {
+          const cp = rotatedGridToScreen(toRotatedGrid(cell.rootX + 0.5, cell.rootY).rx, toRotatedGrid(cell.rootX + 0.5, cell.rootY).ry);
+          drawFacilityEmoji(cp.x, cp.y, 2, '🏀');
+        }
+      }
+      else if (cell.type === 12) { // 楓樹街球場 (純綠草皮)
+        drawIsoTile(p.x, p.y, '#2e7d32', '#1b5e20');
+        const isSouth = getSouthmostChecker(cell.rootX, cell.rootY, 3, 2);
+        if (isSouth(rx, ry)) {
+          const cp = rotatedGridToScreen(toRotatedGrid(cell.rootX + 1.0, cell.rootY + 0.5).rx, toRotatedGrid(cell.rootX + 1.0, cell.rootY + 0.5).ry);
+          drawFacilityEmoji(cp.x, cp.y, 2, '⚽');
+        }
+      }
+      else if (cell.type === 14) { // 田徑運動場 (純跑道紅)
+        drawIsoTile(p.x, p.y, '#b71c1c', '#7f0000');
+        const isSouth = getSouthmostChecker(cell.rootX, cell.rootY, 3, 2);
+        if (isSouth(rx, ry)) {
+          const cp = rotatedGridToScreen(toRotatedGrid(cell.rootX + 1.0, cell.rootY + 0.5).rx, toRotatedGrid(cell.rootX + 1.0, cell.rootY + 0.5).ry);
+          drawFacilityEmoji(cp.x, cp.y, 2, '🏃');
+        }
+      }
+
+      // 未融合分區
+      const isZoned = (cell.type === 2 || cell.type === 3 || cell.type === 4 || cell.type === 10);
+      if (isZoned && !cell.merged) {
+        if (cell.type === 2) {
+          bHeight = cell.abandoned ? 12 : 12 + cell.level * 10;
+          drawBuildingBlock(p.x, p.y, 24, bHeight, cell.abandoned ? '#3e2723' : '#81c784', '#4caf50', '#2e7d32');
+        }
+        else if (cell.type === 10) {
+          const baseH = cell.abandoned ? 12 : 14 + cell.level * 12;
+          bHeight = baseH * 2.2;
+          drawBuildingBlock(p.x, p.y, 26, bHeight, cell.abandoned ? '#263238' : '#80deea', '#00acc1', '#00838f');
+        }
+        else if (cell.type === 3) {
+          bHeight = cell.abandoned ? 14 : 16 + cell.level * 14;
+          drawBuildingBlock(p.x, p.y, 24, bHeight, cell.abandoned ? '#424242' : '#64b5f6', '#1e88e5', '#1565c0');
+        }
+        else if (cell.type === 4) {
+          bHeight = cell.abandoned ? 10 : 12 + cell.level * 6;
+          drawBuildingBlock(p.x, p.y, 28, bHeight, cell.abandoned ? '#5d4037' : '#ffd54f', '#fbc02d', '#f57f17');
+        }
+
+        const lacksP = !cell.powered, lacksW = !cell.watered, hasCrime = cell.crimeLevel > 50;
+        if (lacksP || lacksW || hasCrime) {
+          drawWarningIcons(p.x, p.y, bHeight, lacksP, lacksW, hasCrime);
+        }
+      }
+
+      // 融合與【第4級深度融合】超高摩天群
+      if (isZoned && cell.merged) {
+        const isSouth = getSouthmostChecker(cell.rootX, cell.rootY, 2, 2);
+        if (isSouth(rx, ry)) {
+          const cp = rotatedGridToScreen(toRotatedGrid(cell.rootX + 0.5, cell.rootY + 0.5).rx, toRotatedGrid(cell.rootX + 0.5, cell.rootY + 0.5).ry);
+
+          if (cell.deepMerged) {
+            // 第4級深度融合住宅：超凡高度 135px 雙子摩天大廈
+            bHeight = (cell.type === 10) ? 155 : 135;
+            drawBuildingBlock(cp.x, cp.y + 6, 56, bHeight, '#e0f7fa', '#00838f', '#004d40');
+            // 雙子塔頂部連橋
+            ctx.fillStyle = '#ffd700';
+            ctx.fillRect(cp.x - 6, cp.y - bHeight - 8, 12, 6);
+            drawFacilityEmoji(cp.x, cp.y, bHeight + 8, '🏙️');
+          } else {
+            // 常規第3級融合
+            if (cell.type === 2) {
+              bHeight = 75;
+              drawBuildingBlock(cp.x, cp.y + 6, 54, bHeight, '#a5d6a7', '#388e3c', '#1b5e20');
+            } else if (cell.type === 10) {
+              bHeight = 110;
+              drawBuildingBlock(cp.x, cp.y + 6, 56, bHeight, '#b2ebf2', '#0097a7', '#006064');
+            } else if (cell.type === 3) {
+              bHeight = 90;
+              drawBuildingBlock(cp.x, cp.y + 6, 54, bHeight, '#90caf9', '#1976d2', '#0d47a1');
+            }
+            drawFacilityEmoji(cp.x, cp.y, bHeight + 4, '🏢');
+          }
+        }
+      }
+
+      // 4格設施
+      const isFacility2x2 = (cell.type === 5 || cell.type === 8 || cell.type === 9 || cell.type === 11 || cell.type === 15 || cell.type === 16);
+      if (isFacility2x2) {
+        const isSouth = getSouthmostChecker(cell.rootX, cell.rootY, 2, 2);
+        if (isSouth(rx, ry)) {
+          const cp = rotatedGridToScreen(toRotatedGrid(cell.rootX + 0.5, cell.rootY + 0.5).rx, toRotatedGrid(cell.rootX + 0.5, cell.rootY + 0.5).ry);
+          if (cell.type === 5) {
+            bHeight = 44;
+            drawBuildingBlock(cp.x, cp.y + 6, 52, bHeight, '#ff7043', '#d84315', '#bf360c');
+            drawFacilityEmoji(cp.x, cp.y, bHeight + 4, '⚡');
+          } else if (cell.type === 8) {
+            bHeight = 40;
+            drawBuildingBlock(cp.x, cp.y + 6, 50, bHeight, '#e3f2fd', '#1565c0', '#0d47a1');
+            drawFacilityEmoji(cp.x, cp.y, bHeight + 2, '👮');
+          } else if (cell.type === 15) { // 深水埗消防局
+            bHeight = 42;
+            drawBuildingBlock(cp.x, cp.y + 6, 52, bHeight, '#ffab91', '#d84315', '#bf360c');
+            drawFacilityEmoji(cp.x, cp.y, bHeight + 4, '🚒');
+          } else if (cell.type === 9) {
+            bHeight = 38;
+            drawBuildingBlock(cp.x, cp.y + 6, 52, bHeight, '#ffcdd2', '#c62828', '#8e0000');
+            drawFacilityEmoji(cp.x, cp.y, bHeight + 4, '🏫');
+          } else if (cell.type === 11) {
+            bHeight = 42;
+            drawBuildingBlock(cp.x, cp.y + 6, 52, bHeight, '#e1bee7', '#6a1b9a', '#4a148c');
+            drawFacilityEmoji(cp.x, cp.y, bHeight + 6, '🏫');
+          } else if (cell.type === 16) { // 深水埗公共圖書館
+            bHeight = 46;
+            drawBuildingBlock(cp.x, cp.y + 6, 54, bHeight, '#c8e6c9', '#2e7d32', '#1b5e20');
+            ctx.fillStyle = '#ffeb3b';
+            ctx.fillRect(cp.x - 3, cp.y - bHeight - 4, 6, 4); // 金頂智慧象徵
+            drawFacilityEmoji(cp.x, cp.y, bHeight + 4, '📚');
+          }
+        }
+      }
+    }
+  }
+  requestAnimationFrame(render);
+}
+
+// 模擬運算
+function simulateCity() {
+  let powerSources = [], waterSources = [], policeStations = [], fireStations = [];
+  let policeCount = 0, fireCount = 0, schCount = 0, libCount = 0;
+  let powerPlantCount = 0, waterPumpCount = 0;
+
+  for (let y = 0; y < MAP_SIZE; y++) {
+    for (let x = 0; x < MAP_SIZE; x++) {
+      const c = map[y][x];
+      c.powered = false; c.watered = false; c.hasPolice = false;
+
+      if (c.type === 5) { powerSources.push([x, y]); if (c.isOrigin) powerPlantCount++; }
+      if (c.type === 6) { waterSources.push([x, y]); waterPumpCount++; }
+      if (c.type === 8) { policeStations.push([x, y]); if (c.isOrigin) policeCount++; }
+      if (c.type === 15 && c.isOrigin) fireCount++;
+      if ((c.type === 9 || c.type === 11) && c.isOrigin) schCount++;
+      if (c.type === 16 && c.isOrigin) libCount++;
+    }
+  }
+
+  // BFS 電力
+  let pQueue = [...powerSources], pVisited = new Set(pQueue.map(p => `${p[0]},${p[1]}`));
+  while (pQueue.length > 0) {
+    let [cx, cy] = pQueue.shift();
+    map[cy][cx].powered = true;
+    [[0,1], [0,-1], [1,0], [-1,0]].forEach(([dx, dy]) => {
+      let nx = cx + dx, ny = cy + dy;
+      if (nx >= 0 && nx < MAP_SIZE && ny >= 0 && ny < MAP_SIZE) {
+        let key = `${nx},${ny}`;
+        if (!pVisited.has(key) && map[ny][nx].type !== 0 && map[ny][nx].type !== 99) {
+          pVisited.add(key); pQueue.push([nx, ny]);
+        }
+      }
+    });
+  }
+
+  // 供水半徑 8
+  waterSources.forEach(([wx, wy]) => {
+    for (let dy = -8; dy <= 8; dy++) {
+      for (let dx = -8; dx <= 8; dx++) {
+        let nx = wx + dx, ny = wy + dy;
+        if (nx >= 0 && nx < MAP_SIZE && ny >= 0 && ny < MAP_SIZE && Math.hypot(dx, dy) <= 8) {
+          map[ny][nx].watered = true;
+        }
+      }
+    }
+  });
+
+  // 警署半徑 14
+  policeStations.forEach(([px, py]) => {
+    for (let dy = -14; dy <= 14; dy++) {
+      for (let dx = -14; dx <= 14; dx++) {
+        let nx = px + dx, ny = py + dy;
+        if (nx >= 0 && nx < MAP_SIZE && ny >= 0 && ny < MAP_SIZE && Math.hypot(dx, dy) <= 14) {
+          map[ny][nx].hasPolice = true;
+        }
+      }
+    }
+  });
+
+  return { policeCount, fireCount, schCount, libCount, powerPlantCount, waterPumpCount };
+}
+
+// 觸發火警爆發並蔓延燒毀區域
+function triggerFireDisaster() {
+  let targetCells = [];
+  for (let y = 0; y < MAP_SIZE; y++) {
+    for (let x = 0; x < MAP_SIZE; x++) {
+      const c = map[y][x];
+      if (c.type >= 2 && c.type <= 10 && !c.abandoned && c.type !== 99) {
+        targetCells.push({ x, y });
+      }
+    }
+  }
+
+  if (targetCells.length === 0) return;
+
+  // 隨機選定起火中心點
+  const center = targetCells[Math.floor(Math.random() * targetCells.length)];
+  const radius = 3; // 燒毀區域半徑 3 格
+
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      let nx = center.x + dx, ny = center.y + dy;
+      if (nx >= 0 && nx < MAP_SIZE && ny >= 0 && ny < MAP_SIZE) {
+        if (Math.hypot(dx, dy) <= radius && map[ny][nx].type !== 0 && map[ny][nx].type !== 1) {
+          // 吞噬燒成焦黑廢墟地塊
+          map[ny][nx] = {
+            type: 99, level: 0, powered: false, watered: false,
+            hasRoad: false, hasPolice: false, crimeLevel: 0, abandoned: true,
+            merged: false, deepMerged: false, isOrigin: false, rootX: nx, rootY: ny
+          };
+        }
+      }
+    }
+  }
+
+  // 彈出緊急紅色通報
+  const banner = document.getElementById('alert-banner');
+  banner.innerText = '🔥 緊急災難！深水埗發生大火！區域已被燒成黑炭，請以推土機剷除後重建！';
+  banner.classList.add('show');
+  setTimeout(() => banner.classList.remove('show'), 6000);
+}
+
+// 主都市演進時鐘
+setInterval(() => {
+  tickCount++;
+  utilityTimer--;
+  fireCheckTimer--;
+
+  const { policeCount, fireCount, schCount, libCount, powerPlantCount, waterPumpCount } = simulateCity();
+
+  // 城市等級判定:
+  // Lv1: 0 所小學
+  // Lv2: 1 所小學
+  // Lv3: 2 所小學 (需 3 間消防局抗火)
+  // Lv4: 2 所小學 + 興建深水埗圖書館 (住宅深度融合)
+  let currentTier = 1;
+  let tierName = '舊式市鎮 (Lv1)';
+  let tierColor = '#b71c1c';
+
+  if (schCount === 1) {
+    currentTier = 2;
+    tierName = '發展中市區 (Lv2)';
+    tierColor = '#f57f17';
+    // 進入第2級時在頂端彈出紅色警報
+    if (!hasWarnedLv2) {
+      hasWarnedLv2 = true;
+      const banner = document.getElementById('alert-banner');
+      banner.innerText = '⚠️ 警告：城市已達第二級！火警風險急升，請儘速興建深水埗消防局以策安全！';
+      banner.classList.add('show');
+      setTimeout(() => banner.classList.remove('show'), 5500);
+    }
+  } else if (schCount >= 2 && libCount === 0) {
+    currentTier = 3;
+    tierName = '繁華大都會 (Lv3)';
+    tierColor = '#00c853';
+  } else if (schCount >= 2 && libCount >= 1) {
+    currentTier = 4;
+    tierName = '智慧大都會 (Lv4 終極)';
+    tierColor = '#7b1fa2';
+  }
+
+  // 火災風險評估
+  let fireAtRisk = false;
+  if (currentTier === 2 && fireCount < 1) fireAtRisk = true;
+  if (currentTier >= 3 && fireCount < 3) fireAtRisk = true;
+
+  // 每 60 秒 1% 機率判定火警
+  if (fireCheckTimer <= 0) {
+    fireCheckTimer = 60;
+    if (fireAtRisk && Math.random() < 0.01) {
+      triggerFireDisaster();
+    }
+  }
+
+  let totalPop = 0, jobs = 0;
+  let rCount = 0, cCount = 0, iCount = 0, luxCount = 0, mergedCount = 0;
+  let totalCrime = 0, zoneCount = 0;
+
+  for (let y = 0; y < MAP_SIZE; y++) {
+    for (let x = 0; x < MAP_SIZE; x++) {
+      const cell = map[y][x];
+      const isZoned = (cell.type === 2 || cell.type === 3 || cell.type === 4 || cell.type === 10);
+
+      if (isZoned) {
+        zoneCount++;
+        let nearRoad = false;
+        for (let dy = -2; dy <= 2; dy++) {
+          for (let dx = -2; dx <= 2; dx++) {
+            let nx = x + dx, ny = y + dy;
+            if (nx >= 0 && nx < MAP_SIZE && ny >= 0 && ny < MAP_SIZE && map[ny][nx].type === 1) nearRoad = true;
+          }
+        }
+        cell.hasRoad = nearRoad;
+
+        if (cell.hasPolice) {
+          cell.crimeLevel = Math.max(0, cell.crimeLevel - 30);
+        } else {
+          cell.crimeLevel = Math.min(100, cell.crimeLevel + Math.floor(Math.random() * (45 - schCount * 10 - libCount * 10) * 0.4));
+        }
+        totalCrime += cell.crimeLevel;
+
+        const isDeprived = (!cell.hasRoad || !cell.powered || !cell.watered || cell.crimeLevel > 65 || taxRate > 0.12);
+        if (isDeprived) {
+          if (cell.merged) { cell.merged = false; cell.deepMerged = false; cell.level = Math.max(0, cell.level - 1); }
+          else if (cell.level > 0) cell.level--;
+          else cell.abandoned = true;
+        } else {
+          cell.abandoned = false;
+          let maxLvl = (currentTier >= 3) ? 2 : (currentTier === 2 ? 1 : 0);
+          if (cell.level < maxLvl && Math.random() < 0.25) cell.level++;
+        }
+
+        if (!cell.abandoned && !cell.merged) {
+          if (cell.type === 2) { totalPop += (cell.level + 1) * 35; rCount++; }
+          else if (cell.type === 10) { totalPop += (cell.level + 1) * 65; luxCount++; }
+          else if (cell.type === 3) { jobs += (cell.level + 1) * 25; cCount++; }
+          else if (cell.type === 4) { jobs += (cell.level + 1) * 35; iCount++; }
+        }
+      }
+    }
+  }
+
+  // 融合判定 (第3級常規融合，第4級深度融合)
+  if (currentTier >= 3 && happiness >= 75) {
+    for (let y = 0; y < MAP_SIZE - 1; y += 2) {
+      for (let x = 0; x < MAP_SIZE - 1; x += 2) {
+        const c0 = map[y][x], c1 = map[y][x+1], c2 = map[y+1][x], c3 = map[y+1][x+1];
+        if ((c0.type === 2 || c0.type === 10 || c0.type === 3) && c0.type === c1.type && c0.type === c2.type && c0.type === c3.type) {
+          if ([c0, c1, c2, c3].every(c => c.powered && c.watered && c.hasRoad && !c.abandoned && c.crimeLevel < 25)) {
+            const isDeep = (currentTier >= 4 && (c0.type === 2 || c0.type === 10)); // 第4級住宅深度融合
+            [c0, c1, c2, c3].forEach(c => {
+              c.merged = true;
+              c.deepMerged = isDeep;
+              c.rootX = x;
+              c.rootY = y;
+            });
+          }
+        }
+      }
+    }
+  }
+
+  for (let y = 0; y < MAP_SIZE; y++) {
+    for (let x = 0; x < MAP_SIZE; x++) {
+      const c = map[y][x];
+      if (c.merged && c.rootX === x && c.rootY === y) {
+        mergedCount++;
+        if (c.deepMerged) {
+          // 第4級深度融合超高人口暴增
+          totalPop += (c.type === 10) ? 1400 : 950;
+        } else {
+          if (c.type === 2) totalPop += 450;
+          else if (c.type === 10) totalPop += 700;
+          else if (c.type === 3) jobs += 600;
+        }
+      }
+    }
+  }
+
+  population = totalPop;
+  overallCrimeScore = zoneCount > 0 ? Math.floor(totalCrime / zoneCount) : 0;
+  happiness = Math.max(10, Math.min(100, Math.floor(100 - (taxRate * 180) - (overallCrimeScore * 0.4) + (schCount * 8) + (libCount * 12))));
+
+  demandI = Math.min(50, Math.max(-50, (population * 0.15 - iCount * 12) + 20 + (0.08 - taxRate) * 150));
+  demandR = Math.min(50, Math.max(-50, (jobs - population * 0.5) + (0.08 - taxRate) * 150));
+  demandC = Math.min(50, Math.max(-50, (population * 0.4 - cCount * 15) + (schCount * 12) + (0.08 - taxRate) * 150));
+
+  // 常規每秒稅收
+  const baseTax = Math.floor(population * taxRate * 1.6) + (cCount + iCount) * 8 + (luxCount * 22) + (mergedCount * 80);
+  const regularMaint = (rCount + cCount + iCount + luxCount) * 2;
+  funds += (baseTax - regularMaint);
+
+  // 【每 30 秒結算各公用設施營運成本】
+  // 發電廠每30秒$500，抽水機$50，警署$300，小學各$300，消防局$1000，圖書館$1000
+  const facilityCostPer30s = (powerPlantCount * 500) +
+                             (waterPumpCount * 50) +
+                             (policeCount * 300) +
+                             (schCount * 300) +
+                             (fireCount * 1000) +
+                             (libCount * 1000);
+
+  if (utilityTimer <= 0) {
+    funds -= facilityCostPer30s;
+    utilityTimer = 30;
+  }
+
+  // 面板更新
+  document.getElementById('stat-funds').innerText = funds;
+  document.getElementById('stat-pop').innerText = population;
+  document.getElementById('stat-happy').innerText = `${happiness}%`;
+  document.getElementById('stat-timer').innerText = utilityTimer;
+  document.getElementById('stat-maint').innerText = facilityCostPer30s;
+  document.getElementById('stat-facility').innerText = `學${schCount}|警${policeCount}|消${fireCount}`;
+
+  const tierEl = document.getElementById('stat-tier');
+  tierEl.innerText = tierName; tierEl.style.color = tierColor;
+
+  const fireEl = document.getElementById('stat-fire');
+  if (fireAtRisk) {
+    fireEl.innerText = (currentTier === 2) ? '高危 (缺消防)' : '極高危 (需3局)';
+    fireEl.style.color = '#ff1744';
+  } else {
+    fireEl.innerText = '安全 (已受保)';
+    fireEl.style.color = '#00e676';
+  }
+
+  document.getElementById('r-bar').style.height = `${Math.max(4, (demandR + 50) * 0.4)}px`;
+  document.getElementById('c-bar').style.height = `${Math.max(4, (demandC + 50) * 0.4)}px`;
+  document.getElementById('i-bar').style.height = `${Math.max(4, (demandI + 50) * 0.4)}px`;
+}, 1000);
+
+// 視角旋轉
+const dirNames = ['北 (0°)', '東 (90°)', '南 (180°)', '西 (270°)'];
+function rotateView(clockwise = true) {
+  rotation = clockwise ? (rotation + 1) % 4 : (rotation + 3) % 4;
+  document.getElementById('view-dir').innerText = dirNames[rotation];
+}
+document.getElementById('btn-rot-cw').addEventListener('click', () => rotateView(true));
+document.getElementById('btn-rot-ccw').addEventListener('click', () => rotateView(false));
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'q' || e.key === 'Q') rotateView(false);
+  if (e.key === 'e' || e.key === 'E') rotateView(true);
+});
+
+// 觸控手勢
+let touchStart = { x: 0, y: 0 }, isDragging = false, touchStartTime = 0;
+
+function handlePointerDown(clientX, clientY) {
+  isDragging = false;
+  touchStart = { x: clientX - camX, y: clientY - camY };
+  touchStartTime = Date.now();
+}
+
+function handlePointerMove(clientX, clientY) {
+  const dx = clientX - (touchStart.x + camX);
+  const dy = clientY - (touchStart.y + camY);
+  if (Math.hypot(dx, dy) > 8) {
+    isDragging = true;
+    camX = clientX - touchStart.x;
+    camY = clientY - touchStart.y;
+  }
+}
+
+function handlePointerUp(clientX, clientY) {
+  if (!isDragging && Date.now() - touchStartTime < 350) {
+    const rect = canvas.getBoundingClientRect();
+    const rPos = screenToRotatedGrid(clientX - rect.left, clientY - rect.top);
+    if (rPos.rx >= 0 && rPos.rx < MAP_SIZE && rPos.ry >= 0 && rPos.ry < MAP_SIZE) {
+      const orig = fromRotatedGrid(rPos.rx, rPos.ry);
+      applyTool(orig.gx, orig.gy);
+    }
+  }
+}
+
+canvas.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1) handlePointerDown(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 1) handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+  if (e.changedTouches.length > 0) handlePointerUp(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+});
+
+canvas.addEventListener('mousedown', (e) => handlePointerDown(e.clientX, e.clientY));
+window.addEventListener('mousemove', (e) => { if (touchStart.x) handlePointerMove(e.clientX, e.clientY); });
+window.addEventListener('mouseup', (e) => { handlePointerUp(e.clientX, e.clientY); touchStart = { x: 0, y: 0 }; });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// 建造與清拆 (含推土機剷平黑炭焦土)
+function applyTool(gx, gy) {
+  const cost = COSTS[currentTool];
+
+  if (currentTool === 'dozer') {
+    if (funds >= cost && map[gy][gx].type !== 0) {
+      const rx = map[gy][gx].rootX, ry = map[gy][gx].rootY;
+      const targetType = map[gy][gx].type;
+      funds -= cost;
+
+      let spanW = 1, spanH = 1;
+      const is4Tile = (targetType === 5 || targetType === 8 || targetType === 9 || targetType === 11 || targetType === 15 || targetType === 16 || map[gy][gx].merged);
+      if (is4Tile) {
+        spanW = 2; spanH = 2;
+      } else if (targetType === 12 || targetType === 14) {
+        spanW = 3; spanH = 2;
+      } else if (targetType === 13) {
+        spanW = 2; spanH = 1;
+      }
+
+      for (let dy = 0; dy < spanH; dy++) {
+        for (let dx = 0; dx < spanW; dx++) {
+          const tx = rx + dx, ty = ry + dy;
+          if (tx < MAP_SIZE && ty < MAP_SIZE) {
+            map[ty][tx] = {
+              type: 0, level: 0, powered: false, watered: false,
+              hasRoad: false, hasPolice: false, crimeLevel: 0, abandoned: false,
+              merged: false, deepMerged: false, isOrigin: false, rootX: tx, rootY: ty
+            };
+          }
+        }
+      }
+    }
+  }
+  // 籃球場 (2x1, $500)
+  else if (currentTool === 'bball') {
+    if (gx + 1 < MAP_SIZE && map[gy][gx].type === 0 && map[gy][gx+1].type === 0 && funds >= cost) {
+      funds -= cost;
+      for (let dx = 0; dx < 2; dx++) {
+        map[gy][gx + dx] = {
+          type: 13, level: 0, powered: true, watered: true,
+          hasRoad: false, hasPolice: false, crimeLevel: 0, abandoned: false,
+          merged: false, deepMerged: false, isOrigin: (dx === 0), rootX: gx, rootY: gy
+        };
+      }
+    }
+  }
+  // 楓樹街球場 / 田徑場 (3x2)
+  else if (currentTool === 'mpark' || currentTool === 'stadium') {
+    if (gx + 2 < MAP_SIZE && gy + 1 < MAP_SIZE) {
+      let canBuild = true;
+      for (let dy = 0; dy < 2; dy++) {
+        for (let dx = 0; dx < 3; dx++) {
+          if (map[gy + dy][gx + dx].type !== 0) canBuild = false;
+        }
+      }
+      if (canBuild && funds >= cost) {
+        funds -= cost;
+        const bType = (currentTool === 'mpark') ? 12 : 14;
+        for (let dy = 0; dy < 2; dy++) {
+          for (let dx = 0; dx < 3; dx++) {
+            map[gy + dy][gx + dx] = {
+              type: bType, level: 0, powered: true, watered: true,
+              hasRoad: false, hasPolice: false, crimeLevel: 0, abandoned: false,
+              merged: false, deepMerged: false, isOrigin: (dx === 0 && dy === 0), rootX: gx, rootY: gy
+            };
+          }
+        }
+      }
+    }
+  }
+  // 4格設施 (發電廠 / 警署 / 消防局 / 小學 / 深水埗圖書館)
+  else if (currentTool === 'power' || currentTool === 'police' || currentTool === 'fire' || currentTool === 'sch1' || currentTool === 'sch2' || currentTool === 'lib') {
+    if (gx + 1 < MAP_SIZE && gy + 1 < MAP_SIZE) {
+      const canBuild = (map[gy][gx].type === 0 && map[gy][gx+1].type === 0 && map[gy+1][gx].type === 0 && map[gy+1][gx+1].type === 0);
+      if (canBuild && funds >= cost) {
+        funds -= cost;
+        const typeMap = { power: 5, police: 8, fire: 15, sch1: 9, sch2: 11, lib: 16 };
+        for (let dy = 0; dy < 2; dy++) {
+          for (let dx = 0; dx < 2; dx++) {
+            map[gy + dy][gx + dx] = {
+              type: typeMap[currentTool], level: 0, powered: true, watered: true,
+              hasRoad: false, hasPolice: false, crimeLevel: 0, abandoned: false,
+              merged: false, deepMerged: false, isOrigin: (dx === 0 && dy === 0), rootX: gx, rootY: gy
+            };
+          }
+        }
+      }
+    }
+  }
+  // 1x1 建築
+  else {
+    if (funds >= cost && map[gy][gx].type === 0) {
+      funds -= cost;
+      const typeMap = { road: 1, res: 2, lux: 10, com: 3, ind: 4, water: 6, spk: 7 };
+      map[gy][gx] = {
+        type: typeMap[currentTool], level: 0, powered: false, watered: false,
+        hasRoad: false, hasPolice: false, crimeLevel: 0, abandoned: false,
+        merged: false, deepMerged: false, isOrigin: true, rootX: gx, rootY: gy
+      };
+    }
+  }
+  document.getElementById('stat-funds').innerText = funds;
+}
+
+// 工具列切換
+document.querySelectorAll('.tools-grid .classic-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tools-grid .classic-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentTool = btn.dataset.tool;
+  });
+});
+
+document.getElementById('tax-slider').addEventListener('input', (e) => {
+  taxRate = e.target.value / 100;
+  document.getElementById('tax-val').innerText = `${e.target.value}%`;
+});
+
+render();
+</script>
+</body>
+</html>
+```
