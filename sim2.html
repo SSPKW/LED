@@ -4,95 +4,50 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>模擬城市：深水埗 (陳主任製作 - 完整災難與第四級圖書館版)</title>
+<title>模擬城市：深水埗 (陳主任製作 - 精確火警公式升級版)</title>
 <style>
   * { box-sizing: border-box; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Courier New', monospace; }
-  html, body {
-    width: 100%; height: 100%; overflow: hidden; position: fixed; background: #18181c;
-  }
+  html, body { width: 100%; height: 100%; overflow: hidden; position: fixed; background: #121216; }
   body { display: flex; }
 
   /* 右上角 [陳主任製作] 標籤 */
   #author-badge {
-    position: absolute;
-    top: 10px;
-    right: 12px;
-    background: #d4af37;
-    color: #000;
-    font-weight: bold;
-    font-size: 13px;
-    padding: 6px 14px;
-    border: 2px solid #fff;
-    box-shadow: 3px 3px 0 #000;
-    z-index: 100;
-    letter-spacing: 1.5px;
-    pointer-events: none;
+    position: absolute; top: 10px; right: 12px;
+    background: #d4af37; color: #000; font-weight: bold; font-size: 13px;
+    padding: 6px 14px; border: 2px solid #fff; box-shadow: 3px 3px 0 #000;
+    z-index: 100; letter-spacing: 1.5px; pointer-events: none;
   }
 
-  /* 頂端火警警告橫幅 (Lv2 警報) */
+  /* 頂端警報橫幅 */
   #alert-banner {
-    position: absolute;
-    top: -60px;
-    left: 280px;
-    right: 180px;
-    background: #b71c1c;
-    color: #fff;
-    font-weight: bold;
-    font-size: 13px;
-    padding: 10px 16px;
-    border: 2px solid #ffeb3b;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
-    z-index: 200;
-    text-align: center;
-    letter-spacing: 1px;
-    transition: top 0.4s ease-out;
+    position: absolute; top: -75px; left: 290px; right: 180px;
+    background: #b71c1c; color: #fff; font-weight: bold; font-size: 13px;
+    padding: 10px 16px; border: 2px solid #ffeb3b; box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    z-index: 200; text-align: center; letter-spacing: 1px; transition: top 0.4s ease-out;
   }
-  #alert-banner.show {
-    top: 12px;
-  }
+  #alert-banner.show { top: 12px; }
+  #alert-banner.cyber { background: #000; color: #00e5ff; border-color: #ff0055; box-shadow: 0 0 20px #ff0055; }
+  #alert-banner.warn { background: #e65100; color: #fff; border-color: #ffd600; }
+  #alert-banner.fire { background: #d50000; color: #fff; border-color: #ffea00; box-shadow: 0 0 20px #ff1744; }
+  #alert-banner.deduct { background: #4a148c; color: #ffeb3b; border-color: #ffd600; box-shadow: 0 0 18px #ba68c8; }
 
   /* 復古側邊欄 */
   #ui-panel {
-    width: 275px;
-    min-width: 275px;
-    background: #c0c0c0;
-    border-right: 3px solid #404040;
-    display: flex;
-    flex-direction: column;
-    padding: 6px;
-    box-shadow: inset 1px 1px #fff, inset -1px -1px #808080;
-    z-index: 10;
-    font-size: 11px;
-    gap: 4px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    width: 280px; min-width: 280px; background: #c0c0c0; border-right: 3px solid #404040;
+    display: flex; flex-direction: column; padding: 6px; box-shadow: inset 1px 1px #fff, inset -1px -1px #808080;
+    z-index: 10; font-size: 11px; gap: 4px; overflow-y: auto; -webkit-overflow-scrolling: touch;
   }
 
-  .inset-box {
-    background: #e0e0e0;
-    border: 2px inset #808080;
-    padding: 4px 6px;
-  }
-
+  .inset-box { background: #e0e0e0; border: 2px inset #808080; padding: 4px 6px; }
   .header {
-    background: #800000;
-    color: #fff;
-    font-weight: bold;
-    padding: 4px;
-    text-align: center;
-    font-size: 12px;
-    letter-spacing: 1px;
+    background: #800000; color: #fff; font-weight: bold; padding: 4px;
+    text-align: center; font-size: 12px; letter-spacing: 1px;
   }
 
   /* RCI 儀表 */
   .rci-container {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-around;
-    height: 38px;
-    background: #111;
-    border: 2px inset #808080;
-    padding: 2px;
+    display: flex; align-items: flex-end; justify-content: space-around;
+    height: 38px; background: #111; border: 2px inset #808080; padding: 2px;
   }
   .rci-bar-wrap { display: flex; flex-direction: column; align-items: center; width: 25%; }
   .rci-bar { width: 14px; background: #555; transition: height 0.3s; }
@@ -101,52 +56,45 @@
   #c-bar { background: #2979ff; }
   #i-bar { background: #ffd600; }
 
-  /* 按鈕網格 */
-  .tools-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 3px;
+  /* 9 大公用結算指示面板 */
+  .settle-box {
+    background: #fff8e1; border: 2px solid #8d6e63; padding: 6px; line-height: 1.45;
+  }
+  .settle-flash {
+    background: #ffcdd2 !important; border-color: #b71c1c !important;
+    transform: scale(1.02); transition: all 0.2s;
+  }
+  .detail-list {
+    font-size: 9.5px; color: #272727; background: #ffffff; padding: 4px 6px;
+    border: 1px solid #bcaaa4; margin-top: 3px; max-height: 75px; overflow-y: auto;
+    line-height: 1.35;
   }
 
-  .view-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 3px;
-  }
+  /* 按鈕網格 */
+  .tools-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+  .view-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
 
   button.classic-btn {
-    background: #c0c0c0;
-    border: 2px outset #fff;
-    padding: 5px 1px;
-    min-height: 36px;
-    font-size: 9.5px;
-    font-weight: bold;
-    cursor: pointer;
-    text-align: center;
-    line-height: 1.2;
+    background: #c0c0c0; border: 2px outset #fff; padding: 5px 1px; min-height: 36px;
+    font-size: 9.5px; font-weight: bold; cursor: pointer; text-align: center; line-height: 1.2;
     touch-action: manipulation;
   }
-  button.classic-btn:active, button.classic-btn.active {
-    border: 2px inset #fff;
-    background: #a0a0a0;
+  button.classic-btn:active, button.classic-btn.active { border: 2px inset #fff; background: #a0a0a0; }
+  button.classic-btn.locked {
+    background: #888 !important; color: #333 !important; border-color: #555 !important;
+    opacity: 0.65; cursor: not-allowed;
   }
 
   .tax-box label { display: flex; justify-content: space-between; font-weight: bold; }
   input[type=range] { width: 100%; height: 20px; }
 
-  #game-canvas {
-    flex: 1;
-    touch-action: none;
-    cursor: crosshair;
-    image-rendering: pixelated;
-  }
+  #game-canvas { flex: 1; touch-action: none; cursor: crosshair; image-rendering: pixelated; }
 </style>
 </head>
 <body>
 
 <div id="author-badge">陳主任製作</div>
 
-<!-- 頂端火警警告橫幅 -->
 <div id="alert-banner">
   ⚠️ 警告：城市已達第二級！火警風險急升，請儘速興建深水埗消防局以策安全！
 </div>
@@ -154,18 +102,27 @@
 <div id="ui-panel">
   <div class="header">模擬城市：深水埗</div>
   
+  <!-- 狀態欄：精確百分比火警風險顯示，已移除醫療狀態 -->
   <div class="inset-box">
-    <div>財政庫房: <b>$<span id="stat-funds">35000</span></b></div>
-    <div>市區人口: <b><span id="stat-pop">0</span> 人</b></div>
+    <div>財政庫房: <b>$<span id="stat-funds">50000</span></b></div>
+    <div>市區人口: <b><span id="stat-pop">0</span></b></div>
     <div>城市等級: <b><span id="stat-tier" style="color:#b71c1c;">舊式市鎮 (Lv1)</span></b></div>
-    <div>火災風險: <b><span id="stat-fire" style="color:green;">安全</span></b></div>
-    <div>設施統計: <b><span id="stat-facility">學0|警0|消0</span></b></div>
-    <div>市民滿意: <b><span id="stat-happy" style="color:green;">80%</span></b></div>
-    <div style="background:#fff3e0; padding:2px; margin-top:2px; border:1px solid #ffb74d;">
-      公用結算倒數: <b><span id="stat-timer" style="color:#e65100;">30</span> 秒</b><br>
-      每30秒營運費: <b>$<span id="stat-maint">0</span></b>
-    </div>
+    <div>火警風險: <b><span id="stat-fire" style="color:green;">0.0% (絕對安全)</span></b></div>
     <div>視角方位: <b><span id="view-dir">北 (0°)</span></b></div>
+  </div>
+
+  <!-- 9 大公用服務統一結算面板 -->
+  <div id="settle-panel" class="settle-box">
+    <div style="font-size:11px; border-bottom:1px solid #bcaaa4; padding-bottom:2px; display:flex; justify-content:space-between;">
+      <b>🏛️ 9大公用統一結算</b>
+      <span style="color:#e65100;"><b><span id="stat-timer">30</span> 秒</b></span>
+    </div>
+    <div style="margin-top:2px;">已建設施總數: <b style="color:#000080; font-size:12px;"><span id="stat-fac-count">0</span> 所</b></div>
+    <div>每30秒扣款: <b style="color:#d50000; font-size:12px;">-$<span id="stat-total-maint">0</span></b></div>
+    
+    <div class="detail-list" id="stat-fac-details">
+      尚無公用設施運作中
+    </div>
   </div>
 
   <div class="view-grid">
@@ -199,29 +156,37 @@
     <button class="classic-btn" data-tool="lux" style="color:#00796b;">高級住宅(豪宅)<br>$800</button>
     <button class="classic-btn" data-tool="com">地舖商場(C)<br>$100</button>
     <button class="classic-btn" data-tool="ind">輕工業區(I)<br>$100</button>
-    <button class="classic-btn" data-tool="water">抽水設施 🚰<br>$500 [30秒/$50]</button>
     <button class="classic-btn" data-tool="spk">街角小公園 🌳<br>$50</button>
-    
-    <!-- 體育設施 (純淨色+Emoji) -->
+
+    <!-- 體育設施 -->
     <button class="classic-btn" data-tool="bball" style="color:#0277bd;">籃球場(2格)🏀<br>$500</button>
     <button class="classic-btn" data-tool="mpark" style="color:#2e7d32;">楓樹街球場(6格)⚽<br>$300</button>
     <button class="classic-btn" data-tool="stadium" style="color:#b71c1c;">田徑運動場(6格)🏃<br>$3000</button>
 
-    <!-- 4格市政與公用設施 -->
-    <button class="classic-btn" data-tool="power" style="color:#d84315;">發電廠(4格) ⚡<br>$2000 [30秒/$500]</button>
-    <button class="classic-btn" data-tool="police" style="color:#0d47a1;">深水埗警署(4格)👮<br>$2000 [30秒/$300]</button>
-    <button class="classic-btn" data-tool="fire" style="color:#e64a19;">深水埗消防局(4格)🚒<br>$2500 [30秒/$1000]</button>
-    <button class="classic-btn" data-tool="sch1" style="color:#880e4f;">深水埔小學(4格)🏫<br>$3000 [30秒/$300]</button>
-    <button class="classic-btn" data-tool="sch2" style="color:#4a148c;">郭怡雅小學(4格)🏫<br>$3000 [30秒/$300]</button>
-    <button class="classic-btn" data-tool="lib" style="color:#1b5e20;">深水埗圖書館(4格)📚<br>$4000 [30秒/$1000]</button>
+    <!-- 9 大公用基建 -->
+    <button class="classic-btn" data-tool="water">抽水設施 🚰<br>$500 [$50/期]</button>
+    <button class="classic-btn" data-tool="power" style="color:#d84315;">發電廠(4格) ⚡<br>$2000 [$500/期]</button>
+    <button class="classic-btn" data-tool="police" style="color:#0d47a1;">深水埗警署(4格)👮<br>$2000 [$300/期]</button>
+    <button class="classic-btn" data-tool="fire" style="color:#e64a19;">深水埗消防局(4格)🚒<br>$2500 [$1000/期]</button>
+    <button class="classic-btn" data-tool="sch1" style="color:#880e4f;">深水埔小學(4格)🏫<br>$3000 [$300/期]</button>
+    <button class="classic-btn" data-tool="sch2" style="color:#4a148c;">郭怡雅小學(4格)🏫<br>$3000 [$300/期]</button>
+    <button class="classic-btn" data-tool="lib" style="color:#1b5e20;">深水埗圖書館(4格)📚<br>$4000 [$1000/期]</button>
+    
+    <!-- 醫療 (Lv3 解鎖) -->
+    <button class="classic-btn locked" id="btn-hosp" data-tool="hosp" style="color:#c2185b;">深水埗醫院(4格)🏥<br>$5000 [$5000/期]</button>
+    <button class="classic-btn locked" id="btn-clinic" data-tool="clinic" style="color:#7b1fa2;">街坊診所(1格)🩺<br>$1000 [$15k/期]</button>
+
+    <!-- 航空設施 (到達第6級前不可興建) -->
+    <button class="classic-btn locked" id="btn-airport" data-tool="airport" style="grid-column: span 2; color:#0d47a1; background:#cfd8dc;">深水埗國際機場(3x9=27格) 🛫 $12000 [$5000/期]</button>
 
     <button class="classic-btn" data-tool="dozer" style="grid-column: span 2; color:#b71c1c;">舊區清拆 / 剷除焦土 (推土機) $5</button>
   </div>
 
-  <div class="inset-box" style="font-size:8.5px; line-height: 1.3;">
-    <b>終極市政綱要:</b><br>
-    • <b>消防安全</b>：第2級需1間消防局；第3級需3間！否則每分鐘有1%機會引發火災燒毀區域變成黑炭，需用推土機剷平重建！<br>
-    • <b>第四級（圖書館）</b>：興建深水埗圖書館後進階第4級，所有住宅深度融合，化身超高雙子天際摩天大樓！
+  <div class="inset-box" style="font-size:8.5px; line-height: 1.35;">
+    <b>最新火警公式手冊:</b><br>
+    • <b>每 10,000 人產生 5% 風險</b>；<b>每所消防局減 10%</b>。<br>
+    • 當風險為 <b>0.0%</b> 時<b>保證絕對不起火</b>！大於 0% 時每 30 秒按比例引發火災。<br>
+    • 蓋 1 小學升 Lv2；蓋 2 小學升 Lv3；加圖書館升 Lv4；三萬人升 Lv5；建機場升 Lv6！
   </div>
 </div>
 
@@ -239,41 +204,57 @@ let camX = 0, camY = 80;
 let rotation = 0;
 
 let currentTool = 'road';
-let funds = 35000;
+let funds = 50000;
 let population = 0;
 let happiness = 80;
 let overallCrimeScore = 0;
 let taxRate = 0.08;
 let tickCount = 0;
 let utilityTimer = 30;
-let fireCheckTimer = 60; // 每 60 秒火警機率檢測
 let animTimer = 0;
 let hasWarnedLv2 = false;
+let hasCelebratedLv6 = false;
+
+// 全局城市等級與火警百分比
+let globalCityTier = 1;
+let currentFireRiskPercent = 0.0;
+
+let hoverGrid = { x: -1, y: -1 };
 
 let demandR = 25, demandC = 10, demandI = 40;
 
 const COSTS = {
   road: 10, res: 100, lux: 800, com: 100, ind: 100,
   water: 500, spk: 50, bball: 500, mpark: 300, stadium: 3000,
-  power: 2000, police: 2000, fire: 2500, sch1: 3000, sch2: 3000, lib: 4000, dozer: 5
+  power: 2000, police: 2000, fire: 2500, sch1: 3000, sch2: 3000, lib: 4000,
+  hosp: 5000, clinic: 1000, airport: 12000, dozer: 5
 };
 
-// 建築物類型:
-// 0:荒地, 1:道路, 2:普通唐樓, 3:商業, 4:工業, 6:抽水設施, 7:小公園, 10:高級住宅
-// 5:發電廠(2x2), 8:警署(2x2), 9:深水埔小學(2x2), 11:郭怡雅小學(2x2), 15:消防局(2x2), 16:深水埗圖書館(2x2)
-// 12:楓樹街球場(3x2), 13:籃球場(2x1), 14:田徑運動場(3x2)
-// 99:火災燒毀後的黑炭焦土 (Burnt Ruin)
+const TOOL_DIMS = {
+  road: [1, 1], res: [1, 1], lux: [1, 1], com: [1, 1], ind: [1, 1], spk: [1, 1], water: [1, 1], clinic: [1, 1], dozer: [1, 1],
+  bball: [2, 1],
+  power: [2, 2], police: [2, 2], fire: [2, 2], sch1: [2, 2], sch2: [2, 2], lib: [2, 2], hosp: [2, 2],
+  mpark: [3, 2], stadium: [3, 2],
+  airport: [3, 9]
+};
+
 const map = [];
 for (let y = 0; y < MAP_SIZE; y++) {
   map[y] = [];
   for (let x = 0; x < MAP_SIZE; x++) {
     map[y][x] = {
       type: 0, level: 0, powered: false, watered: false,
-      hasRoad: false, hasPolice: false, crimeLevel: 0, abandoned: false,
-      merged: false, deepMerged: false, isOrigin: false, rootX: x, rootY: y
+      hasRoad: false, hasPolice: false, hasMedical: false, crimeLevel: 0, abandoned: false,
+      merged: false, deepMerged: false, rootX: x, rootY: y
     };
   }
 }
+
+const airplanes = [
+  { x: 10, y: 10, z: 90, speed: 0.05, angle: 0 },
+  { x: 25, y: 15, z: 120, speed: 0.04, angle: 2.1 },
+  { x: 18, y: 28, z: 105, speed: 0.06, angle: 4.2 }
+];
 
 function resize() {
   const panelW = document.getElementById('ui-panel').offsetWidth;
@@ -285,7 +266,6 @@ window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 200));
 resize();
 
-// 視角轉換
 function toRotatedGrid(gx, gy) {
   const max = MAP_SIZE - 1;
   if (rotation === 1) return { rx: gy, ry: max - gx };
@@ -317,7 +297,6 @@ function screenToRotatedGrid(sx, sy) {
   return { rx, ry };
 }
 
-// 基礎菱形格
 function drawIsoTile(x, y, color, strokeColor = '#24521e') {
   ctx.fillStyle = color;
   ctx.beginPath();
@@ -332,7 +311,6 @@ function drawIsoTile(x, y, color, strokeColor = '#24521e') {
   ctx.stroke();
 }
 
-// 自動道路
 function drawRoadWithMarkings(x, y, gx, gy) {
   drawIsoTile(x, y, '#3c3c3c', '#1f1f1f');
   const rPos = toRotatedGrid(gx, gy);
@@ -366,9 +344,20 @@ function drawRoadWithMarkings(x, y, gx, gy) {
   if (rightC) { ctx.moveTo(cx, cy); ctx.lineTo(cx + TILE_W / 4, cy + TILE_H / 4); }
   ctx.stroke();
   ctx.setLineDash([]);
+
+  if (topC && btmC && leftC && rightC) {
+    ctx.fillStyle = '#111';
+    ctx.fillRect(cx - 1.5, cy - 12, 3, 12);
+    ctx.fillStyle = '#222';
+    ctx.fillRect(cx - 4, cy - 18, 8, 8);
+    const isRed = (Math.floor(animTimer * 0.7) % 2 === 0);
+    ctx.fillStyle = isRed ? '#ff1744' : '#00e676';
+    ctx.beginPath();
+    ctx.arc(cx, cy - 14, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
-// 3D 立方體建築
 function drawBuildingBlock(x, y, w, h, topColor, sideColor1, sideColor2) {
   ctx.fillStyle = sideColor1;
   ctx.beginPath();
@@ -395,6 +384,107 @@ function drawBuildingBlock(x, y, w, h, topColor, sideColor1, sideColor2) {
   ctx.fill();
 }
 
+function drawCyberpunkStructure(x, y, w, h, neonType = 0) {
+  drawBuildingBlock(x, y, w, h, '#1f2029', '#14141d', '#0d0d14');
+  const pulse = Math.sin(animTimer * 2.5);
+
+  if (neonType === 0) {
+    ctx.fillStyle = pulse > 0 ? '#00e5ff' : '#0097a7';
+    ctx.fillRect(x - w/3, y - h*0.65, 3.5, 12);
+    ctx.fillStyle = pulse < 0 ? '#ff0055' : '#c2185b';
+    ctx.fillRect(x + 2, y - h*0.45, w/3, 4);
+  } else if (neonType === 1) {
+    ctx.fillStyle = '#00e5ff';
+    ctx.fillRect(x - w/4, y - h + 2, w/2, 3);
+    ctx.fillStyle = '#ffd700';
+    ctx.fillRect(x - 2, y - h*0.7, 4, h*0.6);
+  } else if (neonType === 2) {
+    ctx.fillStyle = '#d500f9';
+    ctx.fillRect(x - w/2 + 2, y - h*0.5, w - 4, 6);
+    ctx.fillStyle = '#00e5ff';
+    ctx.fillRect(x - 4, y - h*0.8, 8, 4);
+  } else if (neonType === 3) {
+    ctx.fillStyle = pulse > 0 ? '#ff1744' : '#2979ff';
+    ctx.fillRect(x - 4, y - h - 3, 8, 4);
+  }
+}
+
+function drawHemisphereBuilding(x, y, radius, isCyber = false) {
+  const cy = y + TILE_H / 2;
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(x, cy, radius * 0.9, radius * 0.45, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const grad = ctx.createRadialGradient(x - radius * 0.3, cy - radius * 0.6, radius * 0.1, x, cy - radius * 0.3, radius);
+  if (isCyber) {
+    grad.addColorStop(0, '#80deea');
+    grad.addColorStop(0.3, '#00acc1');
+    grad.addColorStop(0.7, '#006064');
+    grad.addColorStop(1, '#001e26');
+  } else {
+    grad.addColorStop(0, '#fff59d');
+    grad.addColorStop(0.3, '#fbc02d');
+    grad.addColorStop(0.7, '#f57f17');
+    grad.addColorStop(1, '#e65100');
+  }
+
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(x, cy, radius, Math.PI, 0, false);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = isCyber ? 'rgba(0,229,255,0.8)' : 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(x, cy, radius * 0.6, Math.PI, 0, false);
+  ctx.moveTo(x, cy - radius);
+  ctx.lineTo(x, cy);
+  ctx.stroke();
+
+  ctx.fillStyle = isCyber ? '#ff0055' : '#00e5ff';
+  ctx.fillRect(x - 1.5, cy - radius - 3, 3, 3);
+}
+
+function drawCrystalTower(x, y, h) {
+  const cy = y + 8;
+  ctx.fillStyle = '#00695c';
+  ctx.beginPath();
+  ctx.moveTo(x - 24, cy); ctx.lineTo(x, cy + 12); ctx.lineTo(x - 4, cy - h); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#00bfa5';
+  ctx.beginPath();
+  ctx.moveTo(x, cy + 12); ctx.lineTo(x + 24, cy); ctx.lineTo(x - 4, cy - h); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#e0f2f1';
+  ctx.beginPath(); ctx.arc(x - 4, cy - h - 3, 4, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawSpiralSkyscraper(x, y, h) {
+  const cy = y + 8;
+  drawBuildingBlock(x, cy - 6, 44, h, '#80deea', '#00acc1', '#006064');
+  ctx.strokeStyle = '#ffd700';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for (let i = 0; i <= 30; i++) {
+    const t = i / 30;
+    const px = x + Math.cos(t * Math.PI * 4) * 24;
+    const py = (cy - 6) - (t * h) + Math.sin(t * Math.PI * 4) * 4;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#ffeb3b';
+  ctx.beginPath(); ctx.arc(x, cy - h - 10, 6, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawSteppedArcology(x, y, h) {
+  const cy = y + 8;
+  drawBuildingBlock(x, cy - 4, 52, h * 0.45, '#90caf9', '#1976d2', '#0d47a1');
+  drawBuildingBlock(x, cy - (h * 0.45) - 4, 36, h * 0.35, '#bbdefb', '#2196f3', '#1565c0');
+  drawBuildingBlock(x, cy - (h * 0.8) - 4, 20, h * 0.25, '#e3f2fd', '#42a5f5', '#1976d2');
+  ctx.fillStyle = '#ff4081';
+  ctx.fillRect(x - 6, cy - h - 16, 12, 5);
+}
+
 function drawFacilityEmoji(x, y, buildingH, emoji) {
   const bob = Math.sin(animTimer * 0.8) * 1.5;
   ctx.font = '15px sans-serif';
@@ -403,13 +493,14 @@ function drawFacilityEmoji(x, y, buildingH, emoji) {
   ctx.fillText(emoji, x, y - buildingH - 8 + bob);
 }
 
-function drawWarningIcons(x, y, buildingH, lacksPower, lacksWater, hasCrime) {
+function drawWarningIcons(x, y, buildingH, lacksPower, lacksWater, hasCrime, lacksMed) {
   const bob = Math.sin(animTimer * 1.5) * 2;
   const basePosY = y - buildingH - 8 + bob;
   let icons = [];
   if (lacksPower) icons.push('⚡');
   if (lacksWater) icons.push('💧');
   if (hasCrime) icons.push('🚨');
+  if (lacksMed) icons.push('💔');
 
   const startX = x - ((icons.length - 1) * 12) / 2;
   icons.forEach((icon, idx) => {
@@ -434,10 +525,79 @@ function getSouthmostChecker(origX, origY, spanW, spanH) {
   return (rx, ry) => (rx === maxR.rx && ry === maxR.ry);
 }
 
-// 主渲染迴圈
+function renderAirplanes() {
+  airplanes.forEach((plane, i) => {
+    plane.angle += plane.speed * 0.4;
+    const currentGx = 18 + Math.cos(plane.angle + i * 2) * 14;
+    const currentGy = 18 + Math.sin(plane.angle + i * 2) * 14;
+    const rPos = toRotatedGrid(currentGx, currentGy);
+    const sp = rotatedGridToScreen(rPos.rx, rPos.ry);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.ellipse(sp.x, sp.y + TILE_H/2, 10, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    const planeY = sp.y - plane.z;
+    ctx.font = '18px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('✈️', sp.x, planeY);
+
+    ctx.fillStyle = (Math.floor(animTimer * 3) % 2 === 0) ? '#ff1744' : '#00e676';
+    ctx.fillRect(sp.x - 7, planeY - 2, 3, 3);
+  });
+}
+
+// 建築陰影預覽
+function renderPlacementPreview() {
+  if (hoverGrid.x < 0 || hoverGrid.y < 0) return;
+
+  const dims = TOOL_DIMS[currentTool] || [1, 1];
+  const spanW = dims[0], spanH = dims[1];
+  const gx = hoverGrid.x, gy = hoverGrid.y;
+
+  let canBuild = true;
+
+  if (currentTool === 'dozer') {
+    canBuild = (gx >= 0 && gx < MAP_SIZE && gy >= 0 && gy < MAP_SIZE && map[gy][gx].type !== 0);
+  } else {
+    if (gx + spanW > MAP_SIZE || gy + spanH > MAP_SIZE) {
+      canBuild = false;
+    } else {
+      for (let dy = 0; dy < spanH; dy++) {
+        for (let dx = 0; dx < spanW; dx++) {
+          if (map[gy + dy][gx + dx].type !== 0) canBuild = false;
+        }
+      }
+    }
+  }
+
+  const fillCol = canBuild ? 'rgba(0, 230, 118, 0.45)' : 'rgba(255, 23, 68, 0.45)';
+  const strokeCol = canBuild ? '#00e676' : '#ff1744';
+
+  const actualSpanW = (currentTool === 'dozer') ? 1 : spanW;
+  const actualSpanH = (currentTool === 'dozer') ? 1 : spanH;
+
+  for (let dy = 0; dy < actualSpanH; dy++) {
+    for (let dx = 0; dx < actualSpanW; dx++) {
+      const tx = gx + dx, ty = gy + dy;
+      if (tx >= 0 && tx < MAP_SIZE && ty >= 0 && ty < MAP_SIZE) {
+        const rPos = toRotatedGrid(tx, ty);
+        const p = rotatedGridToScreen(rPos.rx, rPos.ry);
+        drawIsoTile(p.x, p.y, fillCol, strokeCol);
+      }
+    }
+  }
+}
+
 function render() {
   animTimer += 0.08;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const hasAirportBuilt = map.some(row => row.some(c => c.type === 19));
+  const isTier6 = hasAirportBuilt;
+  const isTier5 = (population >= 30000 || isTier6);
 
   for (let ry = 0; ry < MAP_SIZE; ry++) {
     for (let rx = 0; rx < MAP_SIZE; rx++) {
@@ -446,16 +606,14 @@ function render() {
       const p = rotatedGridToScreen(rx, ry);
       const cell = map[gy][gx];
 
-      // 底層地皮
       drawIsoTile(p.x, p.y, '#3d6e35');
 
       let bHeight = 0;
 
-      // 火警燒毀的黑炭焦土地塊
       if (cell.type === 99) {
-        drawIsoTile(p.x, p.y, '#1c1c1c', '#000000'); // 焦黑地面
-        ctx.fillStyle = '#424242';
-        ctx.fillRect(p.x - 3, p.y + 2, 6, 4);
+        drawIsoTile(p.x, p.y, '#111111', '#000000');
+        ctx.fillStyle = '#ff3d00';
+        ctx.fillRect(p.x - 2, p.y + 4, 4, 3);
         drawFacilityEmoji(p.x, p.y, 4, '🔥');
         continue;
       }
@@ -463,16 +621,17 @@ function render() {
       if (cell.type === 1) {
         drawRoadWithMarkings(p.x, p.y, gx, gy);
       }
-      else if (cell.type === 6) { // 抽水
+      else if (cell.type === 6) {
         bHeight = 22;
-        drawBuildingBlock(p.x, p.y, 22, bHeight, '#26c6da', '#0097a7', '#006064');
+        if (isTier6) drawCyberpunkStructure(p.x, p.y, 22, bHeight, 3);
+        else drawBuildingBlock(p.x, p.y, 22, bHeight, '#26c6da', '#0097a7', '#006064');
         drawFacilityEmoji(p.x, p.y, bHeight, '🚰');
       }
-      else if (cell.type === 7) { // 小公園
+      else if (cell.type === 7) {
         drawIsoTile(p.x, p.y, '#2e7d32');
         drawFacilityEmoji(p.x, p.y, 2, '🌳');
       }
-      else if (cell.type === 13) { // 籃球場 (純藍)
+      else if (cell.type === 13) {
         drawIsoTile(p.x, p.y, '#0277bd', '#01579b');
         const isSouth = getSouthmostChecker(cell.rootX, cell.rootY, 2, 1);
         if (isSouth(rx, ry)) {
@@ -480,7 +639,7 @@ function render() {
           drawFacilityEmoji(cp.x, cp.y, 2, '🏀');
         }
       }
-      else if (cell.type === 12) { // 楓樹街球場 (純綠草皮)
+      else if (cell.type === 12) {
         drawIsoTile(p.x, p.y, '#2e7d32', '#1b5e20');
         const isSouth = getSouthmostChecker(cell.rootX, cell.rootY, 3, 2);
         if (isSouth(rx, ry)) {
@@ -488,7 +647,7 @@ function render() {
           drawFacilityEmoji(cp.x, cp.y, 2, '⚽');
         }
       }
-      else if (cell.type === 14) { // 田徑運動場 (純跑道紅)
+      else if (cell.type === 14) {
         drawIsoTile(p.x, p.y, '#b71c1c', '#7f0000');
         const isSouth = getSouthmostChecker(cell.rootX, cell.rootY, 3, 2);
         if (isSouth(rx, ry)) {
@@ -496,126 +655,244 @@ function render() {
           drawFacilityEmoji(cp.x, cp.y, 2, '🏃');
         }
       }
+      else if (cell.type === 18) {
+        bHeight = 18;
+        if (isTier6) drawCyberpunkStructure(p.x, p.y, 22, bHeight, 3);
+        else drawBuildingBlock(p.x, p.y, 22, bHeight, '#ce93d8', '#8e24aa', '#4a148c');
+        drawFacilityEmoji(p.x, p.y, bHeight + 2, '🩺');
+      }
 
-      // 未融合分區
       const isZoned = (cell.type === 2 || cell.type === 3 || cell.type === 4 || cell.type === 10);
       if (isZoned && !cell.merged) {
         if (cell.type === 2) {
           bHeight = cell.abandoned ? 12 : 12 + cell.level * 10;
-          drawBuildingBlock(p.x, p.y, 24, bHeight, cell.abandoned ? '#3e2723' : '#81c784', '#4caf50', '#2e7d32');
+          if (isTier6 && !cell.abandoned) drawCyberpunkStructure(p.x, p.y, 24, bHeight, 0);
+          else drawBuildingBlock(p.x, p.y, 24, bHeight, cell.abandoned ? '#3e2723' : '#81c784', '#4caf50', '#2e7d32');
         }
         else if (cell.type === 10) {
           const baseH = cell.abandoned ? 12 : 14 + cell.level * 12;
           bHeight = baseH * 2.2;
-          drawBuildingBlock(p.x, p.y, 26, bHeight, cell.abandoned ? '#263238' : '#80deea', '#00acc1', '#00838f');
+          if (isTier6 && !cell.abandoned) drawCyberpunkStructure(p.x, p.y, 26, bHeight, 1);
+          else drawBuildingBlock(p.x, p.y, 26, bHeight, cell.abandoned ? '#263238' : '#80deea', '#00acc1', '#00838f');
         }
         else if (cell.type === 3) {
           bHeight = cell.abandoned ? 14 : 16 + cell.level * 14;
-          drawBuildingBlock(p.x, p.y, 24, bHeight, cell.abandoned ? '#424242' : '#64b5f6', '#1e88e5', '#1565c0');
+          if (isTier6 && !cell.abandoned) drawCyberpunkStructure(p.x, p.y, 24, bHeight, 2);
+          else drawBuildingBlock(p.x, p.y, 24, bHeight, cell.abandoned ? '#424242' : '#64b5f6', '#1e88e5', '#1565c0');
         }
         else if (cell.type === 4) {
-          bHeight = cell.abandoned ? 10 : 12 + cell.level * 6;
-          drawBuildingBlock(p.x, p.y, 28, bHeight, cell.abandoned ? '#5d4037' : '#ffd54f', '#fbc02d', '#f57f17');
+          if (isTier5 && !cell.abandoned) {
+            drawHemisphereBuilding(p.x, p.y, 14, isTier6);
+            bHeight = 14;
+          } else {
+            bHeight = cell.abandoned ? 10 : 12 + cell.level * 6;
+            drawBuildingBlock(p.x, p.y, 28, bHeight, cell.abandoned ? '#5d4037' : '#ffd54f', '#fbc02d', '#f57f17');
+          }
         }
 
         const lacksP = !cell.powered, lacksW = !cell.watered, hasCrime = cell.crimeLevel > 50;
-        if (lacksP || lacksW || hasCrime) {
-          drawWarningIcons(p.x, p.y, bHeight, lacksP, lacksW, hasCrime);
+        const lacksMed = (!cell.hasMedical && (population >= 8000 || isTier5 || globalCityTier >= 4));
+        if (lacksP || lacksW || hasCrime || lacksMed) {
+          drawWarningIcons(p.x, p.y, bHeight, lacksP, lacksW, hasCrime, lacksMed);
         }
       }
 
-      // 融合與【第4級深度融合】超高摩天群
       if (isZoned && cell.merged) {
         const isSouth = getSouthmostChecker(cell.rootX, cell.rootY, 2, 2);
         if (isSouth(rx, ry)) {
           const cp = rotatedGridToScreen(toRotatedGrid(cell.rootX + 0.5, cell.rootY + 0.5).rx, toRotatedGrid(cell.rootX + 0.5, cell.rootY + 0.5).ry);
-
-          if (cell.deepMerged) {
-            // 第4級深度融合住宅：超凡高度 135px 雙子摩天大廈
-            bHeight = (cell.type === 10) ? 155 : 135;
-            drawBuildingBlock(cp.x, cp.y + 6, 56, bHeight, '#e0f7fa', '#00838f', '#004d40');
-            // 雙子塔頂部連橋
-            ctx.fillStyle = '#ffd700';
-            ctx.fillRect(cp.x - 6, cp.y - bHeight - 8, 12, 6);
-            drawFacilityEmoji(cp.x, cp.y, bHeight + 8, '🏙️');
-          } else {
-            // 常規第3級融合
+          if (isTier5) {
             if (cell.type === 2) {
-              bHeight = 75;
-              drawBuildingBlock(cp.x, cp.y + 6, 54, bHeight, '#a5d6a7', '#388e3c', '#1b5e20');
+              bHeight = 130;
+              drawCrystalTower(cp.x, cp.y, bHeight);
+              drawFacilityEmoji(cp.x - 4, cp.y, bHeight + 6, '💎');
             } else if (cell.type === 10) {
-              bHeight = 110;
-              drawBuildingBlock(cp.x, cp.y + 6, 56, bHeight, '#b2ebf2', '#0097a7', '#006064');
+              bHeight = 160;
+              drawSpiralSkyscraper(cp.x, cp.y, bHeight);
+              drawFacilityEmoji(cp.x, cp.y, bHeight + 10, '🌌');
             } else if (cell.type === 3) {
-              bHeight = 90;
-              drawBuildingBlock(cp.x, cp.y + 6, 54, bHeight, '#90caf9', '#1976d2', '#0d47a1');
+              bHeight = 125;
+              drawSteppedArcology(cp.x, cp.y, bHeight);
+              drawFacilityEmoji(cp.x, cp.y, bHeight + 6, '💠');
             }
-            drawFacilityEmoji(cp.x, cp.y, bHeight + 4, '🏢');
+          } else {
+            if (cell.deepMerged) {
+              bHeight = (cell.type === 10) ? 155 : 135;
+              drawBuildingBlock(cp.x, cp.y + 6, 56, bHeight, '#e0f7fa', '#00838f', '#004d40');
+              drawFacilityEmoji(cp.x, cp.y, bHeight + 8, '🏙️');
+            } else {
+              bHeight = (cell.type === 10) ? 110 : (cell.type === 3 ? 90 : 75);
+              drawBuildingBlock(cp.x, cp.y + 6, 54, bHeight, '#a5d6a7', '#388e3c', '#1b5e20');
+              drawFacilityEmoji(cp.x, cp.y, bHeight + 4, '🏢');
+            }
           }
         }
       }
 
-      // 4格設施
-      const isFacility2x2 = (cell.type === 5 || cell.type === 8 || cell.type === 9 || cell.type === 11 || cell.type === 15 || cell.type === 16);
+      const isFacility2x2 = (cell.type === 5 || cell.type === 8 || cell.type === 9 || cell.type === 11 || cell.type === 15 || cell.type === 16 || cell.type === 17);
       if (isFacility2x2) {
         const isSouth = getSouthmostChecker(cell.rootX, cell.rootY, 2, 2);
         if (isSouth(rx, ry)) {
           const cp = rotatedGridToScreen(toRotatedGrid(cell.rootX + 0.5, cell.rootY + 0.5).rx, toRotatedGrid(cell.rootX + 0.5, cell.rootY + 0.5).ry);
           if (cell.type === 5) {
             bHeight = 44;
-            drawBuildingBlock(cp.x, cp.y + 6, 52, bHeight, '#ff7043', '#d84315', '#bf360c');
+            if (isTier6) drawCyberpunkStructure(cp.x, cp.y + 6, 52, bHeight, 3);
+            else drawBuildingBlock(cp.x, cp.y + 6, 52, bHeight, '#ff7043', '#d84315', '#bf360c');
             drawFacilityEmoji(cp.x, cp.y, bHeight + 4, '⚡');
           } else if (cell.type === 8) {
             bHeight = 40;
-            drawBuildingBlock(cp.x, cp.y + 6, 50, bHeight, '#e3f2fd', '#1565c0', '#0d47a1');
+            if (isTier6) drawCyberpunkStructure(cp.x, cp.y + 6, 50, bHeight, 3);
+            else drawBuildingBlock(cp.x, cp.y + 6, 50, bHeight, '#e3f2fd', '#1565c0', '#0d47a1');
             drawFacilityEmoji(cp.x, cp.y, bHeight + 2, '👮');
-          } else if (cell.type === 15) { // 深水埗消防局
+          } else if (cell.type === 15) {
             bHeight = 42;
-            drawBuildingBlock(cp.x, cp.y + 6, 52, bHeight, '#ffab91', '#d84315', '#bf360c');
+            if (isTier6) drawCyberpunkStructure(cp.x, cp.y + 6, 52, bHeight, 3);
+            else drawBuildingBlock(cp.x, cp.y + 6, 52, bHeight, '#ffab91', '#d84315', '#bf360c');
             drawFacilityEmoji(cp.x, cp.y, bHeight + 4, '🚒');
           } else if (cell.type === 9) {
             bHeight = 38;
-            drawBuildingBlock(cp.x, cp.y + 6, 52, bHeight, '#ffcdd2', '#c62828', '#8e0000');
+            if (isTier6) drawCyberpunkStructure(cp.x, cp.y + 5, 52, bHeight, 3);
+            else drawBuildingBlock(cp.x, cp.y + 5, 52, bHeight, '#ffcdd2', '#c62828', '#8e0000');
             drawFacilityEmoji(cp.x, cp.y, bHeight + 4, '🏫');
           } else if (cell.type === 11) {
             bHeight = 42;
-            drawBuildingBlock(cp.x, cp.y + 6, 52, bHeight, '#e1bee7', '#6a1b9a', '#4a148c');
+            if (isTier6) drawCyberpunkStructure(cp.x, cp.y + 6, 52, bHeight, 3);
+            else drawBuildingBlock(cp.x, cp.y + 6, 52, bHeight, '#e1bee7', '#6a1b9a', '#4a148c');
             drawFacilityEmoji(cp.x, cp.y, bHeight + 6, '🏫');
-          } else if (cell.type === 16) { // 深水埗公共圖書館
+          } else if (cell.type === 16) {
             bHeight = 46;
-            drawBuildingBlock(cp.x, cp.y + 6, 54, bHeight, '#c8e6c9', '#2e7d32', '#1b5e20');
-            ctx.fillStyle = '#ffeb3b';
-            ctx.fillRect(cp.x - 3, cp.y - bHeight - 4, 6, 4); // 金頂智慧象徵
+            if (isTier6) drawCyberpunkStructure(cp.x, cp.y + 6, 54, bHeight, 3);
+            else drawBuildingBlock(cp.x, cp.y + 6, 54, bHeight, '#c8e6c9', '#2e7d32', '#1b5e20');
             drawFacilityEmoji(cp.x, cp.y, bHeight + 4, '📚');
+          } else if (cell.type === 17) {
+            bHeight = 44;
+            if (isTier6) drawCyberpunkStructure(cp.x, cp.y + 6, 52, bHeight, 3);
+            else drawBuildingBlock(cp.x, cp.y + 6, 52, bHeight, '#f8bbd0', '#c2185b', '#880e4f');
+            drawFacilityEmoji(cp.x, cp.y, bHeight + 4, '🏥');
           }
+        }
+      }
+
+      if (cell.type === 19) {
+        drawIsoTile(p.x, p.y, '#181b20', '#0a0d12');
+        const isSouth = getSouthmostChecker(cell.rootX, cell.rootY, 3, 9);
+        if (isSouth(rx, ry)) {
+          const cp = rotatedGridToScreen(toRotatedGrid(cell.rootX + 1.0, cell.rootY + 4.0).rx, toRotatedGrid(cell.rootX + 1.0, cell.rootY + 4.0).ry);
+          bHeight = 36;
+          drawCyberpunkStructure(cp.x, cp.y, 60, bHeight, 2);
+          drawFacilityEmoji(cp.x, cp.y, bHeight + 4, '🛫');
         }
       }
     }
   }
+
+  // 畫面暗 10%
+  if (isTier6) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.10)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    renderAirplanes();
+  }
+
+  renderPlacementPreview();
   requestAnimationFrame(render);
 }
 
-// 模擬運算
-function simulateCity() {
-  let powerSources = [], waterSources = [], policeStations = [], fireStations = [];
-  let policeCount = 0, fireCount = 0, schCount = 0, libCount = 0;
-  let powerPlantCount = 0, waterPumpCount = 0;
+// 9 大設施獨立根節點統計
+function getPublicFacilityStats() {
+  let waterPumpCount = 0;
+  let hospCount = 0;
+  let policeCount = 0;
+  let powerPlantCount = 0;
+  let fireCount = 0;
+  let sch1Count = 0;
+  let sch2Count = 0;
+  let libCount = 0;
+  let airportCount = 0;
+  let clinicCount = 0;
 
   for (let y = 0; y < MAP_SIZE; y++) {
     for (let x = 0; x < MAP_SIZE; x++) {
       const c = map[y][x];
-      c.powered = false; c.watered = false; c.hasPolice = false;
+      const isRoot = (c.rootX === x && c.rootY === y);
 
-      if (c.type === 5) { powerSources.push([x, y]); if (c.isOrigin) powerPlantCount++; }
-      if (c.type === 6) { waterSources.push([x, y]); waterPumpCount++; }
-      if (c.type === 8) { policeStations.push([x, y]); if (c.isOrigin) policeCount++; }
-      if (c.type === 15 && c.isOrigin) fireCount++;
-      if ((c.type === 9 || c.type === 11) && c.isOrigin) schCount++;
-      if (c.type === 16 && c.isOrigin) libCount++;
+      if (c.type === 5 && isRoot) powerPlantCount++;
+      if (c.type === 6 && isRoot) waterPumpCount++;
+      if (c.type === 8 && isRoot) policeCount++;
+      if (c.type === 9 && isRoot) sch1Count++;
+      if (c.type === 11 && isRoot) sch2Count++;
+      if (c.type === 15 && isRoot) fireCount++;
+      if (c.type === 16 && isRoot) libCount++;
+      if (c.type === 17 && isRoot) hospCount++;
+      if (c.type === 18 && isRoot) clinicCount++;
+      if (c.type === 19 && isRoot) airportCount++;
     }
   }
 
-  // BFS 電力
+  const totalFacilityCount = 
+    waterPumpCount + hospCount + policeCount + powerPlantCount + 
+    fireCount + sch1Count + sch2Count + libCount + airportCount + clinicCount;
+
+  const totalMaintPer30s = 
+    (waterPumpCount * 50) +
+    (hospCount * 5000) +
+    (policeCount * 300) +
+    (powerPlantCount * 500) +
+    (fireCount * 1000) +
+    (sch1Count * 300) +
+    (sch2Count * 300) +
+    (libCount * 1000) +
+    (airportCount * 5000) +
+    (clinicCount * 15000);
+
+  return {
+    waterPumpCount, hospCount, policeCount, powerPlantCount,
+    fireCount, sch1Count, sch2Count, libCount, airportCount, clinicCount,
+    totalFacilityCount, totalMaintPer30s
+  };
+}
+
+function updatePublicUtilityUI() {
+  const fac = getPublicFacilityStats();
+
+  document.getElementById('stat-fac-count').innerText = fac.totalFacilityCount;
+  document.getElementById('stat-total-maint').innerText = fac.totalMaintPer30s;
+
+  const detailEl = document.getElementById('stat-fac-details');
+  if (fac.totalFacilityCount === 0) {
+    detailEl.innerHTML = '尚無公用設施運作中';
+  } else {
+    let details = [];
+    if (fac.waterPumpCount > 0) details.push(`抽水機: ${fac.waterPumpCount}所 ($${fac.waterPumpCount * 50})`);
+    if (fac.powerPlantCount > 0) details.push(`電廠: ${fac.powerPlantCount}所 ($${fac.powerPlantCount * 500})`);
+    if (fac.policeCount > 0) details.push(`警署: ${fac.policeCount}所 ($${fac.policeCount * 300})`);
+    if (fac.fireCount > 0) details.push(`消防局: ${fac.fireCount}所 ($${fac.fireCount * 1000})`);
+    if (fac.sch1Count > 0) details.push(`深水埔小學: ${fac.sch1Count}所 ($${fac.sch1Count * 300})`);
+    if (fac.sch2Count > 0) details.push(`郭怡雅小學: ${fac.sch2Count}所 ($${fac.sch2Count * 300})`);
+    if (fac.libCount > 0) details.push(`圖書館: ${fac.libCount}所 ($${fac.libCount * 1000})`);
+    if (fac.hospCount > 0) details.push(`醫院: ${fac.hospCount}所 ($${fac.hospCount * 5000})`);
+    if (fac.clinicCount > 0) details.push(`診所: ${fac.clinicCount}所 ($${fac.clinicCount * 15000})`);
+    if (fac.airportCount > 0) details.push(`機場: ${fac.airportCount}所 ($${fac.airportCount * 5000})`);
+    detailEl.innerHTML = details.join(' | ');
+  }
+}
+
+function simulateCity() {
+  let powerSources = [], waterSources = [], policeStations = [];
+  let hospitals = [], clinics = [];
+
+  for (let y = 0; y < MAP_SIZE; y++) {
+    for (let x = 0; x < MAP_SIZE; x++) {
+      const c = map[y][x];
+      c.powered = false; c.watered = false; c.hasPolice = false; c.hasMedical = false;
+
+      if (c.type === 5 && c.rootX === x && c.rootY === y) powerSources.push([x, y]);
+      if (c.type === 6) waterSources.push([x, y]);
+      if (c.type === 8 && c.rootX === x && c.rootY === y) policeStations.push([x, y]);
+      if (c.type === 17 && c.rootX === x && c.rootY === y) hospitals.push([x, y]);
+      if (c.type === 18) clinics.push([x, y]);
+    }
+  }
+
   let pQueue = [...powerSources], pVisited = new Set(pQueue.map(p => `${p[0]},${p[1]}`));
   while (pQueue.length > 0) {
     let [cx, cy] = pQueue.shift();
@@ -631,7 +908,6 @@ function simulateCity() {
     });
   }
 
-  // 供水半徑 8
   waterSources.forEach(([wx, wy]) => {
     for (let dy = -8; dy <= 8; dy++) {
       for (let dx = -8; dx <= 8; dx++) {
@@ -643,7 +919,6 @@ function simulateCity() {
     }
   });
 
-  // 警署半徑 14
   policeStations.forEach(([px, py]) => {
     for (let dy = -14; dy <= 14; dy++) {
       for (let dx = -14; dx <= 14; dx++) {
@@ -655,11 +930,32 @@ function simulateCity() {
     }
   });
 
-  return { policeCount, fireCount, schCount, libCount, powerPlantCount, waterPumpCount };
+  hospitals.forEach(([hx, hy]) => {
+    for (let dy = -13; dy <= 13; dy++) {
+      for (let dx = -13; dx <= 13; dx++) {
+        let nx = hx + dx, ny = hy + dy;
+        if (nx >= 0 && nx < MAP_SIZE && ny >= 0 && ny < MAP_SIZE && Math.hypot(dx, dy) <= 13) {
+          map[ny][nx].hasMedical = true;
+        }
+      }
+    }
+  });
+
+  clinics.forEach(([cx, cy]) => {
+    for (let dy = -3; dy <= 3; dy++) {
+      for (let dx = -3; dx <= 3; dx++) {
+        let nx = cx + dx, ny = cy + dy;
+        if (nx >= 0 && nx < MAP_SIZE && ny >= 0 && ny < MAP_SIZE && Math.hypot(dx, dy) <= 3) {
+          map[ny][nx].hasMedical = true;
+        }
+      }
+    }
+  });
 }
 
-// 觸發火警爆發並蔓延燒毀區域
 function triggerFireDisaster() {
+  if (currentFireRiskPercent <= 0.0) return;
+
   let targetCells = [];
   for (let y = 0; y < MAP_SIZE; y++) {
     for (let x = 0; x < MAP_SIZE; x++) {
@@ -672,83 +968,127 @@ function triggerFireDisaster() {
 
   if (targetCells.length === 0) return;
 
-  // 隨機選定起火中心點
   const center = targetCells[Math.floor(Math.random() * targetCells.length)];
-  const radius = 3; // 燒毀區域半徑 3 格
+  const radius = 3;
 
   for (let dy = -radius; dy <= radius; dy++) {
     for (let dx = -radius; dx <= radius; dx++) {
       let nx = center.x + dx, ny = center.y + dy;
       if (nx >= 0 && nx < MAP_SIZE && ny >= 0 && ny < MAP_SIZE) {
         if (Math.hypot(dx, dy) <= radius && map[ny][nx].type !== 0 && map[ny][nx].type !== 1) {
-          // 吞噬燒成焦黑廢墟地塊
           map[ny][nx] = {
             type: 99, level: 0, powered: false, watered: false,
-            hasRoad: false, hasPolice: false, crimeLevel: 0, abandoned: true,
-            merged: false, deepMerged: false, isOrigin: false, rootX: nx, rootY: ny
+            hasRoad: false, hasPolice: false, hasMedical: false, crimeLevel: 0, abandoned: true,
+            merged: false, deepMerged: false, rootX: nx, rootY: ny
           };
         }
       }
     }
   }
 
-  // 彈出緊急紅色通報
   const banner = document.getElementById('alert-banner');
-  banner.innerText = '🔥 緊急災難！深水埗發生大火！區域已被燒成黑炭，請以推土機剷除後重建！';
-  banner.classList.add('show');
-  setTimeout(() => banner.classList.remove('show'), 6000);
+  banner.className = 'show fire';
+  banner.innerText = '🔥 烈火浩劫！深水埗爆發大火！直徑 6 格區域建築化為黑炭，請立刻以推土機剷平重建！';
+  setTimeout(() => banner.className = '', 7000);
 }
 
 // 主都市演進時鐘
 setInterval(() => {
   tickCount++;
-  utilityTimer--;
-  fireCheckTimer--;
+  simulateCity();
 
-  const { policeCount, fireCount, schCount, libCount, powerPlantCount, waterPumpCount } = simulateCity();
+  const fac = getPublicFacilityStats();
+  const schCount = fac.sch1Count + fac.sch2Count;
 
-  // 城市等級判定:
-  // Lv1: 0 所小學
-  // Lv2: 1 所小學
-  // Lv3: 2 所小學 (需 3 間消防局抗火)
-  // Lv4: 2 所小學 + 興建深水埗圖書館 (住宅深度融合)
+  // 晉升等級判定
   let currentTier = 1;
   let tierName = '舊式市鎮 (Lv1)';
   let tierColor = '#b71c1c';
 
-  if (schCount === 1) {
-    currentTier = 2;
-    tierName = '發展中市區 (Lv2)';
-    tierColor = '#f57f17';
-    // 進入第2級時在頂端彈出紅色警報
-    if (!hasWarnedLv2) {
-      hasWarnedLv2 = true;
+  if (fac.airportCount >= 1) {
+    currentTier = 6;
+    tierName = '賽博龐克都會 (Lv6 終極)';
+    tierColor = '#00e5ff';
+    if (!hasCelebratedLv6) {
+      hasCelebratedLv6 = true;
       const banner = document.getElementById('alert-banner');
-      banner.innerText = '⚠️ 警告：城市已達第二級！火警風險急升，請儘速興建深水埗消防局以策安全！';
-      banner.classList.add('show');
-      setTimeout(() => banner.classList.remove('show'), 5500);
+      banner.className = 'show cyber';
+      banner.innerText = '⚡ 歡迎來到未來！深水埗國際機場啟用，正式邁入第六級 Cyberpunk 賽博龐克世界！全城建築轉化，畫面進入賽博夜幕！';
+      setTimeout(() => banner.className = '', 8500);
     }
-  } else if (schCount >= 2 && libCount === 0) {
+  } else if (population >= 30000) {
+    currentTier = 5;
+    tierName = '未來都會 (Lv5 解鎖機場)';
+    tierColor = '#00bcd4';
+  } else if (schCount >= 2 && fac.libCount >= 1) {
+    currentTier = 4;
+    tierName = '智慧大都會 (Lv4 需醫療)';
+    tierColor = '#7b1fa2';
+  } else if (schCount >= 2) {
     currentTier = 3;
     tierName = '繁華大都會 (Lv3)';
     tierColor = '#00c853';
-  } else if (schCount >= 2 && libCount >= 1) {
-    currentTier = 4;
-    tierName = '智慧大都會 (Lv4 終極)';
-    tierColor = '#7b1fa2';
+  } else if (schCount === 1) {
+    currentTier = 2;
+    tierName = '發展中市區 (Lv2)';
+    tierColor = '#f57f17';
+    if (!hasWarnedLv2) {
+      hasWarnedLv2 = true;
+      const banner = document.getElementById('alert-banner');
+      banner.className = 'show';
+      banner.innerText = '⚠️ 警告：城市已達第二級！火警風險急升，請儘速興建深水埗消防局以策安全！';
+      setTimeout(() => banner.className = '', 5500);
+    }
   }
 
-  // 火災風險評估
-  let fireAtRisk = false;
-  if (currentTier === 2 && fireCount < 1) fireAtRisk = true;
-  if (currentTier >= 3 && fireCount < 3) fireAtRisk = true;
+  globalCityTier = currentTier;
 
-  // 每 60 秒 1% 機率判定火警
-  if (fireCheckTimer <= 0) {
-    fireCheckTimer = 60;
-    if (fireAtRisk && Math.random() < 0.01) {
-      triggerFireDisaster();
-    }
+  // 強制更新等級面板文字
+  const tierEl = document.getElementById('stat-tier');
+  tierEl.innerText = tierName;
+  tierEl.style.color = tierColor;
+
+  // 按鈕鎖定控制
+  const btnHosp = document.getElementById('btn-hosp');
+  const btnClinic = document.getElementById('btn-clinic');
+  const btnAirport = document.getElementById('btn-airport');
+
+  if (currentTier < 3) {
+    btnHosp.classList.add('locked');
+    btnHosp.innerHTML = '深水埗醫院(4格)🏥<br>$5000 [需Lv3解鎖]';
+    btnClinic.classList.add('locked');
+    btnClinic.innerHTML = '街坊診所(1格)🩺<br>$1000 [需Lv3解鎖]';
+  } else {
+    btnHosp.classList.remove('locked');
+    btnHosp.innerHTML = '深水埗醫院(4格)🏥<br>$5000 [$5000/期]';
+    btnClinic.classList.remove('locked');
+    btnClinic.innerHTML = '街坊診所(1格)🩺<br>$1000 [$15k/期]';
+  }
+
+  if (currentTier < 5) {
+    btnAirport.classList.add('locked');
+    btnAirport.style.background = '#cfd8dc';
+    btnAirport.innerHTML = '深水埗國際機場(3x9=27格) 🛫 $12000 [需Lv5解鎖]';
+  } else {
+    btnAirport.classList.remove('locked');
+    btnAirport.style.background = '#e1f5fe';
+    btnAirport.innerHTML = '深水埗國際機場(3x9=27格) 🛫 $12000 [興建後直升Lv6]';
+  }
+
+  // 【全新火警風險精確計算公式】
+  // 每 10,000 人產生 5% 風險；每所消防局減低 10%
+  const baseFireRisk = (population / 10000) * 5.0;
+  const fireReduction = fac.fireCount * 10.0;
+  currentFireRiskPercent = Math.max(0.0, baseFireRisk - fireReduction);
+
+  // 更新火警面板資訊
+  const fireEl = document.getElementById('stat-fire');
+  if (currentFireRiskPercent <= 0.0) {
+    fireEl.innerText = `0.0% (絕對安全)`;
+    fireEl.style.color = '#00e676';
+  } else {
+    fireEl.innerText = `${currentFireRiskPercent.toFixed(1)}% (危險)`;
+    fireEl.style.color = currentFireRiskPercent > 10.0 ? '#ff1744' : '#ffd600';
   }
 
   let totalPop = 0, jobs = 0;
@@ -774,9 +1114,12 @@ setInterval(() => {
         if (cell.hasPolice) {
           cell.crimeLevel = Math.max(0, cell.crimeLevel - 30);
         } else {
-          cell.crimeLevel = Math.min(100, cell.crimeLevel + Math.floor(Math.random() * (45 - schCount * 10 - libCount * 10) * 0.4));
+          cell.crimeLevel = Math.min(100, cell.crimeLevel + Math.floor(Math.random() * (45 - schCount * 8 - (fac.libCount * 8)) * 0.4));
         }
         totalCrime += cell.crimeLevel;
+
+        const needsMedical = (currentTier >= 4 && (cell.type === 2 || cell.type === 10));
+        const medSatisfied = (!needsMedical || cell.hasMedical);
 
         const isDeprived = (!cell.hasRoad || !cell.powered || !cell.watered || cell.crimeLevel > 65 || taxRate > 0.12);
         if (isDeprived) {
@@ -786,7 +1129,9 @@ setInterval(() => {
         } else {
           cell.abandoned = false;
           let maxLvl = (currentTier >= 3) ? 2 : (currentTier === 2 ? 1 : 0);
-          if (cell.level < maxLvl && Math.random() < 0.25) cell.level++;
+          if (cell.level < maxLvl && medSatisfied && Math.random() < 0.28) {
+            cell.level++;
+          }
         }
 
         if (!cell.abandoned && !cell.merged) {
@@ -799,14 +1144,15 @@ setInterval(() => {
     }
   }
 
-  // 融合判定 (第3級常規融合，第4級深度融合)
+  // 融合判定
   if (currentTier >= 3 && happiness >= 75) {
     for (let y = 0; y < MAP_SIZE - 1; y += 2) {
       for (let x = 0; x < MAP_SIZE - 1; x += 2) {
         const c0 = map[y][x], c1 = map[y][x+1], c2 = map[y+1][x], c3 = map[y+1][x+1];
         if ((c0.type === 2 || c0.type === 10 || c0.type === 3) && c0.type === c1.type && c0.type === c2.type && c0.type === c3.type) {
-          if ([c0, c1, c2, c3].every(c => c.powered && c.watered && c.hasRoad && !c.abandoned && c.crimeLevel < 25)) {
-            const isDeep = (currentTier >= 4 && (c0.type === 2 || c0.type === 10)); // 第4級住宅深度融合
+          const medCovered = (currentTier < 4 || (c0.hasMedical && c1.hasMedical && c2.hasMedical && c3.hasMedical));
+          if ([c0, c1, c2, c3].every(c => c.powered && c.watered && c.hasRoad && !c.abandoned && c.crimeLevel < 25) && medCovered) {
+            const isDeep = (currentTier >= 4 && (c0.type === 2 || c0.type === 10));
             [c0, c1, c2, c3].forEach(c => {
               c.merged = true;
               c.deepMerged = isDeep;
@@ -824,8 +1170,11 @@ setInterval(() => {
       const c = map[y][x];
       if (c.merged && c.rootX === x && c.rootY === y) {
         mergedCount++;
-        if (c.deepMerged) {
-          // 第4級深度融合超高人口暴增
+        if (currentTier >= 5) {
+          if (c.type === 10) totalPop += 2200;
+          else if (c.type === 2) totalPop += 1500;
+          else if (c.type === 3) jobs += 1800;
+        } else if (c.deepMerged) {
           totalPop += (c.type === 10) ? 1400 : 950;
         } else {
           if (c.type === 2) totalPop += 450;
@@ -838,50 +1187,44 @@ setInterval(() => {
 
   population = totalPop;
   overallCrimeScore = zoneCount > 0 ? Math.floor(totalCrime / zoneCount) : 0;
-  happiness = Math.max(10, Math.min(100, Math.floor(100 - (taxRate * 180) - (overallCrimeScore * 0.4) + (schCount * 8) + (libCount * 12))));
+  happiness = Math.max(10, Math.min(100, Math.floor(100 - (taxRate * 180) - (overallCrimeScore * 0.4) + (schCount * 6) + (fac.libCount * 10) + (fac.hospCount * 10))));
 
   demandI = Math.min(50, Math.max(-50, (population * 0.15 - iCount * 12) + 20 + (0.08 - taxRate) * 150));
   demandR = Math.min(50, Math.max(-50, (jobs - population * 0.5) + (0.08 - taxRate) * 150));
   demandC = Math.min(50, Math.max(-50, (population * 0.4 - cCount * 15) + (schCount * 12) + (0.08 - taxRate) * 150));
 
-  // 常規每秒稅收
-  const baseTax = Math.floor(population * taxRate * 1.6) + (cCount + iCount) * 8 + (luxCount * 22) + (mergedCount * 80);
-  const regularMaint = (rCount + cCount + iCount + luxCount) * 2;
-  funds += (baseTax - regularMaint);
+  const baseTax = Math.floor(population * taxRate * 1.6) + (cCount + iCount) * 8 + (luxCount * 22) + (mergedCount * 120);
+  funds += baseTax;
 
-  // 【每 30 秒結算各公用設施營運成本】
-  // 發電廠每30秒$500，抽水機$50，警署$300，小學各$300，消防局$1000，圖書館$1000
-  const facilityCostPer30s = (powerPlantCount * 500) +
-                             (waterPumpCount * 50) +
-                             (policeCount * 300) +
-                             (schCount * 300) +
-                             (fireCount * 1000) +
-                             (libCount * 1000);
+  utilityTimer--;
 
   if (utilityTimer <= 0) {
-    funds -= facilityCostPer30s;
+    funds -= fac.totalMaintPer30s;
     utilityTimer = 30;
+
+    const settleBox = document.getElementById('settle-panel');
+    settleBox.classList.add('settle-flash');
+    setTimeout(() => settleBox.classList.remove('settle-flash'), 1200);
+
+    if (fac.totalMaintPer30s > 0) {
+      const banner = document.getElementById('alert-banner');
+      banner.className = 'show deduct';
+      banner.innerText = `💸 30秒公用服務結算完畢！已從國庫統一扣除 -$${fac.totalMaintPer30s}`;
+      setTimeout(() => banner.className = '', 4500);
+    }
+
+    // 依據計算出的實際風險判定是否起火（僅在大於 0% 且抽中機率時起火）
+    if (currentFireRiskPercent > 0.0 && (Math.random() * 100) < currentFireRiskPercent) {
+      triggerFireDisaster();
+    }
   }
 
-  // 面板更新
   document.getElementById('stat-funds').innerText = funds;
   document.getElementById('stat-pop').innerText = population;
   document.getElementById('stat-happy').innerText = `${happiness}%`;
   document.getElementById('stat-timer').innerText = utilityTimer;
-  document.getElementById('stat-maint').innerText = facilityCostPer30s;
-  document.getElementById('stat-facility').innerText = `學${schCount}|警${policeCount}|消${fireCount}`;
 
-  const tierEl = document.getElementById('stat-tier');
-  tierEl.innerText = tierName; tierEl.style.color = tierColor;
-
-  const fireEl = document.getElementById('stat-fire');
-  if (fireAtRisk) {
-    fireEl.innerText = (currentTier === 2) ? '高危 (缺消防)' : '極高危 (需3局)';
-    fireEl.style.color = '#ff1744';
-  } else {
-    fireEl.innerText = '安全 (已受保)';
-    fireEl.style.color = '#00e676';
-  }
+  updatePublicUtilityUI();
 
   document.getElementById('r-bar').style.height = `${Math.max(4, (demandR + 50) * 0.4)}px`;
   document.getElementById('c-bar').style.height = `${Math.max(4, (demandC + 50) * 0.4)}px`;
@@ -904,10 +1247,22 @@ window.addEventListener('keydown', (e) => {
 // 觸控手勢
 let touchStart = { x: 0, y: 0 }, isDragging = false, touchStartTime = 0;
 
+function updateHoverPosition(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const rPos = screenToRotatedGrid(clientX - rect.left, clientY - rect.top);
+  if (rPos.rx >= 0 && rPos.rx < MAP_SIZE && rPos.ry >= 0 && rPos.ry < MAP_SIZE) {
+    const orig = fromRotatedGrid(rPos.rx, rPos.ry);
+    hoverGrid = { x: orig.gx, y: orig.gy };
+  } else {
+    hoverGrid = { x: -1, y: -1 };
+  }
+}
+
 function handlePointerDown(clientX, clientY) {
   isDragging = false;
   touchStart = { x: clientX - camX, y: clientY - camY };
   touchStartTime = Date.now();
+  updateHoverPosition(clientX, clientY);
 }
 
 function handlePointerMove(clientX, clientY) {
@@ -918,17 +1273,16 @@ function handlePointerMove(clientX, clientY) {
     camX = clientX - touchStart.x;
     camY = clientY - touchStart.y;
   }
+  updateHoverPosition(clientX, clientY);
 }
 
 function handlePointerUp(clientX, clientY) {
   if (!isDragging && Date.now() - touchStartTime < 350) {
-    const rect = canvas.getBoundingClientRect();
-    const rPos = screenToRotatedGrid(clientX - rect.left, clientY - rect.top);
-    if (rPos.rx >= 0 && rPos.rx < MAP_SIZE && rPos.ry >= 0 && rPos.ry < MAP_SIZE) {
-      const orig = fromRotatedGrid(rPos.rx, rPos.ry);
-      applyTool(orig.gx, orig.gy);
+    if (hoverGrid.x >= 0 && hoverGrid.y >= 0) {
+      applyTool(hoverGrid.x, hoverGrid.y);
     }
   }
+  updateHoverPosition(clientX, clientY);
 }
 
 canvas.addEventListener('touchstart', (e) => {
@@ -944,14 +1298,32 @@ canvas.addEventListener('touchend', (e) => {
   if (e.changedTouches.length > 0) handlePointerUp(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
 });
 
+canvas.addEventListener('mousemove', (e) => updateHoverPosition(e.clientX, e.clientY));
+canvas.addEventListener('mouseleave', () => { hoverGrid = { x: -1, y: -1 }; });
 canvas.addEventListener('mousedown', (e) => handlePointerDown(e.clientX, e.clientY));
 window.addEventListener('mousemove', (e) => { if (touchStart.x) handlePointerMove(e.clientX, e.clientY); });
 window.addEventListener('mouseup', (e) => { handlePointerUp(e.clientX, e.clientY); touchStart = { x: 0, y: 0 }; });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-// 建造與清拆 (含推土機剷平黑炭焦土)
+// 建造與清拆
 function applyTool(gx, gy) {
   const cost = COSTS[currentTool];
+
+  if ((currentTool === 'hosp' || currentTool === 'clinic') && globalCityTier < 3) {
+    const banner = document.getElementById('alert-banner');
+    banner.className = 'show warn';
+    banner.innerText = '❌ 權限不足：市鎮規模未達第三級，暫時無法興建醫療設施！';
+    setTimeout(() => banner.className = '', 3500);
+    return;
+  }
+
+  if (currentTool === 'airport' && globalCityTier < 5) {
+    const banner = document.getElementById('alert-banner');
+    banner.className = 'show warn';
+    banner.innerText = '❌ 權限不足：到達第六級前不可興建機場！需先達第五級及三萬人口！';
+    setTimeout(() => banner.className = '', 3500);
+    return;
+  }
 
   if (currentTool === 'dozer') {
     if (funds >= cost && map[gy][gx].type !== 0) {
@@ -960,13 +1332,17 @@ function applyTool(gx, gy) {
       funds -= cost;
 
       let spanW = 1, spanH = 1;
-      const is4Tile = (targetType === 5 || targetType === 8 || targetType === 9 || targetType === 11 || targetType === 15 || targetType === 16 || map[gy][gx].merged);
+      const is4Tile = (targetType === 5 || targetType === 8 || targetType === 9 || targetType === 11 || targetType === 15 || targetType === 16 || targetType === 17 || map[gy][gx].merged);
       if (is4Tile) {
         spanW = 2; spanH = 2;
       } else if (targetType === 12 || targetType === 14) {
         spanW = 3; spanH = 2;
       } else if (targetType === 13) {
         spanW = 2; spanH = 1;
+      } else if (targetType === 18) {
+        spanW = 1; spanH = 1;
+      } else if (targetType === 19) {
+        spanW = 3; spanH = 9;
       }
 
       for (let dy = 0; dy < spanH; dy++) {
@@ -975,28 +1351,37 @@ function applyTool(gx, gy) {
           if (tx < MAP_SIZE && ty < MAP_SIZE) {
             map[ty][tx] = {
               type: 0, level: 0, powered: false, watered: false,
-              hasRoad: false, hasPolice: false, crimeLevel: 0, abandoned: false,
-              merged: false, deepMerged: false, isOrigin: false, rootX: tx, rootY: ty
+              hasRoad: false, hasPolice: false, hasMedical: false, crimeLevel: 0, abandoned: false,
+              merged: false, deepMerged: false, rootX: tx, rootY: ty
             };
           }
         }
       }
     }
   }
-  // 籃球場 (2x1, $500)
+  else if (currentTool === 'water' || currentTool === 'clinic' || currentTool === 'spk') {
+    if (map[gy][gx].type === 0 && funds >= cost) {
+      funds -= cost;
+      const typeMap = { water: 6, clinic: 18, spk: 7 };
+      map[gy][gx] = {
+        type: typeMap[currentTool], level: 0, powered: true, watered: true,
+        hasRoad: false, hasPolice: false, hasMedical: true, crimeLevel: 0, abandoned: false,
+        merged: false, deepMerged: false, rootX: gx, rootY: gy
+      };
+    }
+  }
   else if (currentTool === 'bball') {
     if (gx + 1 < MAP_SIZE && map[gy][gx].type === 0 && map[gy][gx+1].type === 0 && funds >= cost) {
       funds -= cost;
       for (let dx = 0; dx < 2; dx++) {
         map[gy][gx + dx] = {
           type: 13, level: 0, powered: true, watered: true,
-          hasRoad: false, hasPolice: false, crimeLevel: 0, abandoned: false,
-          merged: false, deepMerged: false, isOrigin: (dx === 0), rootX: gx, rootY: gy
+          hasRoad: false, hasPolice: false, hasMedical: false, crimeLevel: 0, abandoned: false,
+          merged: false, deepMerged: false, rootX: gx, rootY: gy
         };
       }
     }
   }
-  // 楓樹街球場 / 田徑場 (3x2)
   else if (currentTool === 'mpark' || currentTool === 'stadium') {
     if (gx + 2 < MAP_SIZE && gy + 1 < MAP_SIZE) {
       let canBuild = true;
@@ -1012,51 +1397,90 @@ function applyTool(gx, gy) {
           for (let dx = 0; dx < 3; dx++) {
             map[gy + dy][gx + dx] = {
               type: bType, level: 0, powered: true, watered: true,
-              hasRoad: false, hasPolice: false, crimeLevel: 0, abandoned: false,
-              merged: false, deepMerged: false, isOrigin: (dx === 0 && dy === 0), rootX: gx, rootY: gy
+              hasRoad: false, hasPolice: false, hasMedical: false, crimeLevel: 0, abandoned: false,
+              merged: false, deepMerged: false, rootX: gx, rootY: gy
             };
           }
         }
       }
     }
   }
-  // 4格設施 (發電廠 / 警署 / 消防局 / 小學 / 深水埗圖書館)
-  else if (currentTool === 'power' || currentTool === 'police' || currentTool === 'fire' || currentTool === 'sch1' || currentTool === 'sch2' || currentTool === 'lib') {
+  else if (currentTool === 'airport') {
+    if (gx + 2 < MAP_SIZE && gy + 8 < MAP_SIZE) {
+      let canBuild = true;
+      for (let dy = 0; dy < 9; dy++) {
+        for (let dx = 0; dx < 3; dx++) {
+          if (map[gy + dy][gx + dx].type !== 0) canBuild = false;
+        }
+      }
+      if (canBuild && funds >= cost) {
+        funds -= cost;
+        for (let dy = 0; dy < 9; dy++) {
+          for (let dx = 0; dx < 3; dx++) {
+            map[gy + dy][gx + dx] = {
+              type: 19, level: 0, powered: true, watered: true,
+              hasRoad: false, hasPolice: false, hasMedical: false, crimeLevel: 0, abandoned: false,
+              merged: false, deepMerged: false, rootX: gx, rootY: gy
+            };
+          }
+        }
+      }
+    }
+  }
+  else if (['power', 'police', 'fire', 'sch1', 'sch2', 'lib', 'hosp'].includes(currentTool)) {
     if (gx + 1 < MAP_SIZE && gy + 1 < MAP_SIZE) {
       const canBuild = (map[gy][gx].type === 0 && map[gy][gx+1].type === 0 && map[gy+1][gx].type === 0 && map[gy+1][gx+1].type === 0);
       if (canBuild && funds >= cost) {
         funds -= cost;
-        const typeMap = { power: 5, police: 8, fire: 15, sch1: 9, sch2: 11, lib: 16 };
+        const typeMap = { power: 5, police: 8, fire: 15, sch1: 9, sch2: 11, lib: 16, hosp: 17 };
         for (let dy = 0; dy < 2; dy++) {
           for (let dx = 0; dx < 2; dx++) {
             map[gy + dy][gx + dx] = {
               type: typeMap[currentTool], level: 0, powered: true, watered: true,
-              hasRoad: false, hasPolice: false, crimeLevel: 0, abandoned: false,
-              merged: false, deepMerged: false, isOrigin: (dx === 0 && dy === 0), rootX: gx, rootY: gy
+              hasRoad: false, hasPolice: false, hasMedical: true, crimeLevel: 0, abandoned: false,
+              merged: false, deepMerged: false, rootX: gx, rootY: gy
             };
           }
         }
       }
     }
   }
-  // 1x1 建築
   else {
     if (funds >= cost && map[gy][gx].type === 0) {
       funds -= cost;
-      const typeMap = { road: 1, res: 2, lux: 10, com: 3, ind: 4, water: 6, spk: 7 };
+      const typeMap = { road: 1, res: 2, lux: 10, com: 3, ind: 4 };
       map[gy][gx] = {
         type: typeMap[currentTool], level: 0, powered: false, watered: false,
-        hasRoad: false, hasPolice: false, crimeLevel: 0, abandoned: false,
-        merged: false, deepMerged: false, isOrigin: true, rootX: gx, rootY: gy
+        hasRoad: false, hasPolice: false, hasMedical: false, crimeLevel: 0, abandoned: false,
+        merged: false, deepMerged: false, rootX: gx, rootY: gy
       };
     }
   }
+
   document.getElementById('stat-funds').innerText = funds;
+  updatePublicUtilityUI();
 }
 
 // 工具列切換
 document.querySelectorAll('.tools-grid .classic-btn').forEach(btn => {
   btn.addEventListener('click', () => {
+    if (btn.classList.contains('locked')) {
+      if ((btn.dataset.tool === 'hosp' || btn.dataset.tool === 'clinic') && globalCityTier < 3) {
+        const banner = document.getElementById('alert-banner');
+        banner.className = 'show warn';
+        banner.innerText = '❌ 權限不足：市鎮規模未達第三級，暫時無法興建醫療設施！';
+        setTimeout(() => banner.className = '', 3500);
+        return;
+      }
+      if (btn.dataset.tool === 'airport' && globalCityTier < 5) {
+        const banner = document.getElementById('alert-banner');
+        banner.className = 'show warn';
+        banner.innerText = '❌ 權限不足：到達第六級前不可興建機場！需先達第五級及三萬人口！';
+        setTimeout(() => banner.className = '', 3500);
+        return;
+      }
+    }
+
     document.querySelectorAll('.tools-grid .classic-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentTool = btn.dataset.tool;
@@ -1068,6 +1492,7 @@ document.getElementById('tax-slider').addEventListener('input', (e) => {
   document.getElementById('tax-val').innerText = `${e.target.value}%`;
 });
 
+updatePublicUtilityUI();
 render();
 </script>
 </body>
