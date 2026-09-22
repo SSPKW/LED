@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>模擬城市：深水埗 (陳主任製作 - 精確火警公式升級版)</title>
+<title>模擬城市：深水埗 (陳主任製作 - 存檔修復終極版)</title>
 <style>
   * { box-sizing: border-box; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Courier New', monospace; }
   html, body { width: 100%; height: 100%; overflow: hidden; position: fixed; background: #121216; }
@@ -30,10 +30,11 @@
   #alert-banner.warn { background: #e65100; color: #fff; border-color: #ffd600; }
   #alert-banner.fire { background: #d50000; color: #fff; border-color: #ffea00; box-shadow: 0 0 20px #ff1744; }
   #alert-banner.deduct { background: #4a148c; color: #ffeb3b; border-color: #ffd600; box-shadow: 0 0 18px #ba68c8; }
+  #alert-banner.save { background: #1b5e20; color: #c8e6c9; border-color: #00e676; box-shadow: 0 0 18px #00e676; }
 
   /* 復古側邊欄 */
   #ui-panel {
-    width: 280px; min-width: 280px; background: #c0c0c0; border-right: 3px solid #404040;
+    width: 285px; min-width: 285px; background: #c0c0c0; border-right: 3px solid #404040;
     display: flex; flex-direction: column; padding: 6px; box-shadow: inset 1px 1px #fff, inset -1px -1px #808080;
     z-index: 10; font-size: 11px; gap: 4px; overflow-y: auto; -webkit-overflow-scrolling: touch;
   }
@@ -66,7 +67,7 @@
   }
   .detail-list {
     font-size: 9.5px; color: #272727; background: #ffffff; padding: 4px 6px;
-    border: 1px solid #bcaaa4; margin-top: 3px; max-height: 75px; overflow-y: auto;
+    border: 1px solid #bcaaa4; margin-top: 3px; max-height: 70px; overflow-y: auto;
     line-height: 1.35;
   }
 
@@ -75,7 +76,7 @@
   .view-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
 
   button.classic-btn {
-    background: #c0c0c0; border: 2px outset #fff; padding: 5px 1px; min-height: 36px;
+    background: #c0c0c0; border: 2px outset #fff; padding: 5px 1px; min-height: 34px;
     font-size: 9.5px; font-weight: bold; cursor: pointer; text-align: center; line-height: 1.2;
     touch-action: manipulation;
   }
@@ -102,13 +103,30 @@
 <div id="ui-panel">
   <div class="header">模擬城市：深水埗</div>
   
-  <!-- 狀態欄：精確百分比火警風險顯示，已移除醫療狀態 -->
   <div class="inset-box">
     <div>財政庫房: <b>$<span id="stat-funds">50000</span></b></div>
     <div>市區人口: <b><span id="stat-pop">0</span></b></div>
     <div>城市等級: <b><span id="stat-tier" style="color:#b71c1c;">舊式市鎮 (Lv1)</span></b></div>
     <div>火警風險: <b><span id="stat-fire" style="color:green;">0.0% (絕對安全)</span></b></div>
     <div>視角方位: <b><span id="view-dir">北 (0°)</span></b></div>
+  </div>
+
+  <!-- 【存檔 / 讀取 / 剪貼簿 / 檔案管理區】 -->
+  <div class="inset-box" style="background:#e8f5e9; border:2px solid #81c784; padding:4px;">
+    <div style="font-weight:bold; color:#1b5e20; margin-bottom:3px; text-align:center;">💾 城市檔案儲存庫</div>
+    <div class="view-grid">
+      <button class="classic-btn" id="btn-save" style="background:#c8e6c9; color:#1b5e20;">💾 快速儲存</button>
+      <button class="classic-btn" id="btn-load" style="background:#bbdefb; color:#0d47a1;">📂 讀取存檔</button>
+    </div>
+    <div class="view-grid" style="margin-top:2px;">
+      <button class="classic-btn" id="btn-copy-code" style="font-size:8.5px;">📋 複製代碼</button>
+      <button class="classic-btn" id="btn-paste-code" style="font-size:8.5px;">📋 貼上讀檔</button>
+    </div>
+    <div class="view-grid" style="margin-top:2px;">
+      <button class="classic-btn" id="btn-export" style="font-size:8px;">📥 匯出檔案</button>
+      <button class="classic-btn" id="btn-import-trigger" style="font-size:8px;">📤 匯入檔案</button>
+      <input type="file" id="file-import" accept=".json" style="display:none;">
+    </div>
   </div>
 
   <!-- 9 大公用服務統一結算面板 -->
@@ -176,17 +194,10 @@
     <button class="classic-btn locked" id="btn-hosp" data-tool="hosp" style="color:#c2185b;">深水埗醫院(4格)🏥<br>$5000 [$5000/期]</button>
     <button class="classic-btn locked" id="btn-clinic" data-tool="clinic" style="color:#7b1fa2;">街坊診所(1格)🩺<br>$1000 [$15k/期]</button>
 
-    <!-- 航空設施 (到達第6級前不可興建) -->
+    <!-- 航空設施 -->
     <button class="classic-btn locked" id="btn-airport" data-tool="airport" style="grid-column: span 2; color:#0d47a1; background:#cfd8dc;">深水埗國際機場(3x9=27格) 🛫 $12000 [$5000/期]</button>
 
     <button class="classic-btn" data-tool="dozer" style="grid-column: span 2; color:#b71c1c;">舊區清拆 / 剷除焦土 (推土機) $5</button>
-  </div>
-
-  <div class="inset-box" style="font-size:8.5px; line-height: 1.35;">
-    <b>最新火警公式手冊:</b><br>
-    • <b>每 10,000 人產生 5% 風險</b>；<b>每所消防局減 10%</b>。<br>
-    • 當風險為 <b>0.0%</b> 時<b>保證絕對不起火</b>！大於 0% 時每 30 秒按比例引發火災。<br>
-    • 蓋 1 小學升 Lv2；蓋 2 小學升 Lv3；加圖書館升 Lv4；三萬人升 Lv5；建機場升 Lv6！
   </div>
 </div>
 
@@ -215,10 +226,8 @@ let animTimer = 0;
 let hasWarnedLv2 = false;
 let hasCelebratedLv6 = false;
 
-// 全局城市等級與火警百分比
 let globalCityTier = 1;
 let currentFireRiskPercent = 0.0;
-
 let hoverGrid = { x: -1, y: -1 };
 
 let demandR = 25, demandC = 10, demandI = 40;
@@ -238,6 +247,7 @@ const TOOL_DIMS = {
   airport: [3, 9]
 };
 
+// 保持 map 陣列結構穩定，絕不直接被 re-assign
 const map = [];
 for (let y = 0; y < MAP_SIZE; y++) {
   map[y] = [];
@@ -549,7 +559,6 @@ function renderAirplanes() {
   });
 }
 
-// 建築陰影預覽
 function renderPlacementPreview() {
   if (hoverGrid.x < 0 || hoverGrid.y < 0) return;
 
@@ -786,7 +795,6 @@ function render() {
     }
   }
 
-  // 畫面暗 10%
   if (isTier6) {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.10)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -992,7 +1000,7 @@ function triggerFireDisaster() {
   setTimeout(() => banner.className = '', 7000);
 }
 
-// 主都市演進時鐘
+// 主都市運作計時器
 setInterval(() => {
   tickCount++;
   simulateCity();
@@ -1043,12 +1051,10 @@ setInterval(() => {
 
   globalCityTier = currentTier;
 
-  // 強制更新等級面板文字
   const tierEl = document.getElementById('stat-tier');
   tierEl.innerText = tierName;
   tierEl.style.color = tierColor;
 
-  // 按鈕鎖定控制
   const btnHosp = document.getElementById('btn-hosp');
   const btnClinic = document.getElementById('btn-clinic');
   const btnAirport = document.getElementById('btn-airport');
@@ -1075,13 +1081,11 @@ setInterval(() => {
     btnAirport.innerHTML = '深水埗國際機場(3x9=27格) 🛫 $12000 [興建後直升Lv6]';
   }
 
-  // 【全新火警風險精確計算公式】
-  // 每 10,000 人產生 5% 風險；每所消防局減低 10%
+  // 火警公式：每 10,000 人產生 5% 風險；每所消防局減 10%
   const baseFireRisk = (population / 10000) * 5.0;
   const fireReduction = fac.fireCount * 10.0;
   currentFireRiskPercent = Math.max(0.0, baseFireRisk - fireReduction);
 
-  // 更新火警面板資訊
   const fireEl = document.getElementById('stat-fire');
   if (currentFireRiskPercent <= 0.0) {
     fireEl.innerText = `0.0% (絕對安全)`;
@@ -1213,7 +1217,6 @@ setInterval(() => {
       setTimeout(() => banner.className = '', 4500);
     }
 
-    // 依據計算出的實際風險判定是否起火（僅在大於 0% 且抽中機率時起火）
     if (currentFireRiskPercent > 0.0 && (Math.random() * 100) < currentFireRiskPercent) {
       triggerFireDisaster();
     }
@@ -1230,6 +1233,221 @@ setInterval(() => {
   document.getElementById('c-bar').style.height = `${Math.max(4, (demandC + 50) * 0.4)}px`;
   document.getElementById('i-bar').style.height = `${Math.max(4, (demandI + 50) * 0.4)}px`;
 }, 1000);
+
+// ==========================================
+// 【終極修復：SAVE / LOAD 存檔與深拷貝讀取引擎】
+// ==========================================
+
+function getSerializedGameState() {
+  return {
+    version: '2.0',
+    date: new Date().toISOString(),
+    funds, population, happiness, taxRate, tickCount, utilityTimer,
+    globalCityTier, hasWarnedLv2, hasCelebratedLv6,
+    camX, camY, rotation,
+    mapData: map // 導出整個網格狀態
+  };
+}
+
+// 【深拷貝寫入，絕不拋出 TypeError】
+function applyDeserializedGameState(data) {
+  try {
+    if (!data) return false;
+    const sourceMap = data.mapData || data.map;
+    if (!sourceMap || !Array.isArray(sourceMap)) return false;
+
+    funds = Number(data.funds) || 50000;
+    population = Number(data.population) || 0;
+    happiness = Number(data.happiness) || 80;
+    taxRate = Number(data.taxRate) || 0.08;
+    tickCount = Number(data.tickCount) || 0;
+    utilityTimer = Number(data.utilityTimer) || 30;
+    globalCityTier = Number(data.globalCityTier) || 1;
+    hasWarnedLv2 = Boolean(data.hasWarnedLv2);
+    hasCelebratedLv6 = Boolean(data.hasCelebratedLv6);
+    camX = Number(data.camX) || (canvas.width / 2);
+    camY = Number(data.camY) || 80;
+    rotation = Number(data.rotation) || 0;
+
+    // 深拷貝還原地圖每一個方格，避免破壞指針
+    for (let y = 0; y < MAP_SIZE; y++) {
+      for (let x = 0; x < MAP_SIZE; x++) {
+        if (sourceMap[y] && sourceMap[y][x]) {
+          map[y][x] = Object.assign({}, sourceMap[y][x]);
+        } else {
+          map[y][x] = {
+            type: 0, level: 0, powered: false, watered: false,
+            hasRoad: false, hasPolice: false, hasMedical: false, crimeLevel: 0, abandoned: false,
+            merged: false, deepMerged: false, rootX: x, rootY: y
+          };
+        }
+      }
+    }
+
+    // 即時更新面板與控制項
+    document.getElementById('stat-funds').innerText = funds;
+    document.getElementById('stat-pop').innerText = population;
+    document.getElementById('stat-happy').innerText = `${happiness}%`;
+    document.getElementById('tax-slider').value = Math.round(taxRate * 100);
+    document.getElementById('tax-val').innerText = `${Math.round(taxRate * 100)}%`;
+    document.getElementById('view-dir').innerText = dirNames[rotation];
+
+    updatePublicUtilityUI();
+    return true;
+  } catch (err) {
+    console.error('還原存檔發生例外：', err);
+    return false;
+  }
+}
+
+// 快速儲存
+function saveToLocalStorage() {
+  try {
+    const data = getSerializedGameState();
+    const str = JSON.stringify(data);
+    localStorage.setItem('simcity_ssp_savedata_fixed', str);
+    const banner = document.getElementById('alert-banner');
+    banner.className = 'show save';
+    banner.innerText = '💾 快速儲存成功！進度已妥善保存在瀏覽器。';
+    setTimeout(() => banner.className = '', 3500);
+  } catch (err) {
+    console.warn(err);
+    alert('【瀏覽器阻擋本地儲存】\n建議使用「📋 複製代碼」或「📥 匯出檔案」進行永久備份！');
+  }
+}
+
+// 快速讀取
+function loadFromLocalStorage() {
+  try {
+    let str = null;
+    try {
+      str = localStorage.getItem('simcity_ssp_savedata_fixed') ||
+            localStorage.getItem('simcity_ssp_savedata_v2') ||
+            localStorage.getItem('simcity_ssp_savedata');
+    } catch(e) {}
+
+    if (!str) {
+      alert('【找不到本機存檔】\n您可能尚未在此裝置點擊過「快速儲存」，或快取已被清除。\n提示：若您有備份代碼，可點擊「📋 貼上讀檔」！');
+      return;
+    }
+
+    const data = JSON.parse(str);
+    if (applyDeserializedGameState(data)) {
+      const banner = document.getElementById('alert-banner');
+      banner.className = 'show save';
+      banner.innerText = '📂 存檔讀取成功！歡迎回到深水埗！';
+      setTimeout(() => banner.className = '', 3500);
+    } else {
+      alert('讀取失敗：存檔結構損壞。');
+    }
+  } catch (err) {
+    alert('讀取失敗詳細資訊：' + err.message);
+  }
+}
+
+// 剪貼簿複製代碼 (超方便，100% 不受瀏覽器沙盒限制)
+function copySaveCode() {
+  try {
+    const data = getSerializedGameState();
+    const str = JSON.stringify(data);
+    const encoded = btoa(unescape(encodeURIComponent(str))); // 轉成純文字 base64
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(encoded).then(() => {
+        alert('📋 存檔代碼已複製到剪貼簿！您可以貼在記事本或發送至其他裝置遊玩！');
+      }).catch(() => {
+        prompt('請手動複製以下存檔代碼：', encoded);
+      });
+    } else {
+      prompt('請手動複製以下存檔代碼：', encoded);
+    }
+  } catch (err) {
+    alert('複製失敗：' + err.message);
+  }
+}
+
+// 剪貼簿貼上代碼讀取
+function pasteSaveCode() {
+  const code = prompt('請在此貼上您的存檔代碼：');
+  if (!code) return;
+  try {
+    let str = '';
+    try {
+      str = decodeURIComponent(escape(atob(code.trim())));
+    } catch(e) {
+      str = code.trim(); // 若直接是 json
+    }
+    const data = JSON.parse(str);
+    if (applyDeserializedGameState(data)) {
+      const banner = document.getElementById('alert-banner');
+      banner.className = 'show save';
+      banner.innerText = '📋 代碼讀檔成功！已成功載入您的城市進度。';
+      setTimeout(() => banner.className = '', 3500);
+    } else {
+      alert('讀檔失敗：無效的深水埗城市存檔代碼！');
+    }
+  } catch (err) {
+    alert('解析代碼失敗：' + err.message);
+  }
+}
+
+// 匯出 JSON 存檔檔案
+function exportSaveFile() {
+  const data = getSerializedGameState();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `深水埗城市存檔_${new Date().toLocaleDateString().replace(/\//g,'-')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// 匯入 JSON 存檔檔案
+function importSaveFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (applyDeserializedGameState(data)) {
+        const banner = document.getElementById('alert-banner');
+        banner.className = 'show save';
+        banner.innerText = '📤 檔案匯入成功！已成功載入外部存檔。';
+        setTimeout(() => banner.className = '', 3500);
+      } else {
+        alert('檔案匯入失敗：非相容的存檔格式。');
+      }
+    } catch (err) {
+      alert('解析檔案失敗：' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// 每 60 秒後台自動儲存一次
+setInterval(() => {
+  try {
+    const data = getSerializedGameState();
+    localStorage.setItem('simcity_ssp_savedata_fixed', JSON.stringify(data));
+  } catch (e) {}
+}, 60000);
+
+// 綁定存讀檔按鈕
+document.getElementById('btn-save').addEventListener('click', saveToLocalStorage);
+document.getElementById('btn-load').addEventListener('click', loadFromLocalStorage);
+document.getElementById('btn-copy-code').addEventListener('click', copySaveCode);
+document.getElementById('btn-paste-code').addEventListener('click', pasteSaveCode);
+document.getElementById('btn-export').addEventListener('click', exportSaveFile);
+
+const fileImport = document.getElementById('file-import');
+document.getElementById('btn-import-trigger').addEventListener('click', () => fileImport.click());
+fileImport.addEventListener('change', (e) => {
+  if (e.target.files.length > 0) {
+    importSaveFile(e.target.files[0]);
+    e.target.value = '';
+  }
+});
 
 // 視角旋轉
 const dirNames = ['北 (0°)', '東 (90°)', '南 (180°)', '西 (270°)'];
