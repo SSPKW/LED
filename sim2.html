@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -106,6 +105,8 @@
   <div class="inset-box">
     <div>財政庫房: <b>$<span id="stat-funds">50000</span></b></div>
     <div>市區人口: <b><span id="stat-pop">0</span></b></div>
+    <div>市民滿意度: <b><span id="stat-happy">80%</span></b></div>
+    <div>城市失業率: <b><span id="stat-unemp" style="color:#00e676;">0.0%</span></b></div>
     <div>城市等級: <b><span id="stat-tier" style="color:#b71c1c;">舊式市鎮 (Lv1)</span></b></div>
     <div>火警風險: <b><span id="stat-fire" style="color:green;">0.0% (絕對安全)</span></b></div>
     <div>視角方位: <b><span id="view-dir">北 (0°)</span></b></div>
@@ -194,6 +195,12 @@
     <button class="classic-btn locked" id="btn-hosp" data-tool="hosp" style="color:#c2185b;">深水埗醫院(4格)🏥<br>$5000 [$5000/期]</button>
     <button class="classic-btn locked" id="btn-clinic" data-tool="clinic" style="color:#7b1fa2;">街坊診所(1格)🩺<br>$1000 [$15k/期]</button>
 
+    <!-- 高架橋樑 (Lv4 解鎖) -->
+    <button class="classic-btn locked" id="btn-bridge" data-tool="bridge" style="grid-column: span 2; color:#e65100;">高架橋樑(1格)🌉<br>$5000 [需Lv4解鎖]</button>
+
+    <!-- 港口與航運設施 (Lv4 解鎖) -->
+    <button class="classic-btn locked" id="btn-cruise" data-tool="cruise" style="grid-column: span 2; color:#006064; background:#e0f7fa;">郵輪碼頭(2x4=8格) 🚢<br>$50000 [需Lv4解鎖]</button>
+
     <!-- 航空設施 -->
     <button class="classic-btn locked" id="btn-airport" data-tool="airport" style="grid-column: span 2; color:#0d47a1; background:#cfd8dc;">深水埗國際機場(3x9=27格) 🛫 $12000 [$5000/期]</button>
 
@@ -228,6 +235,8 @@ let hasCelebratedLv6 = false;
 
 let globalCityTier = 1;
 let currentFireRiskPercent = 0.0;
+let currentUnemploymentRate = 0.0;
+let isPopulationDraining = false;
 let hoverGrid = { x: -1, y: -1 };
 
 let demandR = 25, demandC = 10, demandI = 40;
@@ -236,14 +245,15 @@ const COSTS = {
   road: 10, res: 100, lux: 800, com: 100, ind: 100,
   water: 500, spk: 50, bball: 500, mpark: 300, stadium: 3000,
   power: 2000, police: 2000, fire: 2500, sch1: 3000, sch2: 3000, lib: 4000,
-  hosp: 5000, clinic: 1000, airport: 12000, dozer: 5
+  hosp: 5000, clinic: 1000, bridge: 5000, airport: 12000, cruise: 50000, dozer: 5
 };
 
 const TOOL_DIMS = {
-  road: [1, 1], res: [1, 1], lux: [1, 1], com: [1, 1], ind: [1, 1], spk: [1, 1], water: [1, 1], clinic: [1, 1], dozer: [1, 1],
+  road: [1, 1], res: [1, 1], lux: [1, 1], com: [1, 1], ind: [1, 1], spk: [1, 1], water: [1, 1], clinic: [1, 1], bridge: [1, 1], dozer: [1, 1],
   bball: [2, 1],
   power: [2, 2], police: [2, 2], fire: [2, 2], sch1: [2, 2], sch2: [2, 2], lib: [2, 2], hosp: [2, 2],
   mpark: [3, 2], stadium: [3, 2],
+  cruise: [2, 4],
   airport: [3, 9]
 };
 
@@ -251,11 +261,15 @@ const TOOL_DIMS = {
 const map = [];
 for (let y = 0; y < MAP_SIZE; y++) {
   map[y] = [];
+  // 利用正弦波生成蜿蜒的河流，佔地圖約 1/5 面積
+  const riverCenter = 18 + Math.sin(y * 0.4) * 4;
   for (let x = 0; x < MAP_SIZE; x++) {
+    const isRiver = Math.abs(x - riverCenter) <= 3.5;
+    const initType = isRiver ? 20 : 0; // 20 代表河流
     map[y][x] = {
-      type: 0, level: 0, powered: false, watered: false,
+      type: initType, level: 0, powered: false, watered: false,
       hasRoad: false, hasPolice: false, hasMedical: false, crimeLevel: 0, abandoned: false,
-      merged: false, deepMerged: false, rootX: x, rootY: y
+      merged: false, deepMerged: false, rootX: x, rootY: y, originalType: initType
     };
   }
 }
@@ -265,6 +279,8 @@ const airplanes = [
   { x: 25, y: 15, z: 120, speed: 0.04, angle: 2.1 },
   { x: 18, y: 28, z: 105, speed: 0.06, angle: 4.2 }
 ];
+
+let ships = [];
 
 function resize() {
   const panelW = document.getElementById('ui-panel').offsetWidth;
@@ -328,7 +344,8 @@ function drawRoadWithMarkings(x, y, gx, gy) {
     const nRot = { rx: rPos.rx + drx, ry: rPos.ry + dry };
     if (nRot.rx >= 0 && nRot.rx < MAP_SIZE && nRot.ry >= 0 && nRot.ry < MAP_SIZE) {
       const orig = fromRotatedGrid(nRot.rx, nRot.ry);
-      return map[orig.gy][orig.gx].type === 1;
+      const t = map[orig.gy][orig.gx].type;
+      return t === 1 || t === 21; // 道路與橋樑均可連接
     }
     return false;
   };
@@ -569,7 +586,9 @@ function renderPlacementPreview() {
   let canBuild = true;
 
   if (currentTool === 'dozer') {
-    canBuild = (gx >= 0 && gx < MAP_SIZE && gy >= 0 && gy < MAP_SIZE && map[gy][gx].type !== 0);
+    canBuild = (gx >= 0 && gx < MAP_SIZE && gy >= 0 && gy < MAP_SIZE && map[gy][gx].type !== 0 && map[gy][gx].type !== 20);
+  } else if (currentTool === 'bridge') {
+    canBuild = (gx >= 0 && gx < MAP_SIZE && gy >= 0 && gy < MAP_SIZE && (map[gy][gx].type === 0 || map[gy][gx].type === 20));
   } else {
     if (gx + spanW > MAP_SIZE || gy + spanH > MAP_SIZE) {
       canBuild = false;
@@ -607,6 +626,32 @@ function render() {
   const hasAirportBuilt = map.some(row => row.some(c => c.type === 19));
   const isTier6 = hasAirportBuilt;
   const isTier5 = (population >= 30000 || isTier6);
+  const hasCruiseTerminal = map.some(row => row.some(c => c.type === 22));
+
+  // 船隻生成與移動邏輯
+  if (hasCruiseTerminal && Math.random() < 0.015 && ships.length < 5) {
+    const types = [
+      { type: 'speedboat', emoji: '🚤', size: 18, speed: 0.15 },
+      { type: 'yacht', emoji: '🛥️', size: 30, speed: 0.08 },
+      { type: 'carrier', emoji: '🚢', size: 55, speed: 0.03 }
+    ];
+    const t = types[Math.floor(Math.random() * types.length)];
+    const dir = Math.random() > 0.5 ? 1 : -1;
+    ships.push({ ...t, progress: dir === 1 ? 0 : MAP_SIZE - 1, dir: dir });
+  }
+
+  ships.forEach(ship => {
+    ship.progress += ship.speed * ship.dir;
+    ship.dead = (ship.progress < 0 || ship.progress >= MAP_SIZE);
+    if (!ship.dead) {
+      ship.gx = 18 + Math.sin(ship.progress * 0.4) * 4;
+      ship.gy = ship.progress;
+      const rPos = toRotatedGrid(ship.gx, ship.gy);
+      ship.rx = rPos.rx;
+      ship.ry = rPos.ry;
+    }
+  });
+  ships = ships.filter(s => !s.dead);
 
   for (let ry = 0; ry < MAP_SIZE; ry++) {
     for (let rx = 0; rx < MAP_SIZE; rx++) {
@@ -615,9 +660,43 @@ function render() {
       const p = rotatedGridToScreen(rx, ry);
       const cell = map[gy][gx];
 
-      drawIsoTile(p.x, p.y, '#3d6e35');
+      // 繪製基底 (陸地或水域)
+      let baseColor = '#3d6e35';
+      let strokeColor = '#24521e';
+      
+      if (cell.type === 20 || (cell.originalType === 20 && (cell.type === 0 || cell.type === 21))) {
+        baseColor = '#1976d2';
+        strokeColor = '#1565c0';
+      }
+
+      drawIsoTile(p.x, p.y, baseColor, strokeColor);
+
+      // 河流波浪與船隻特效 (在橋樑前繪製，能正確被橋樑遮蔽)
+      if (baseColor === '#1976d2') {
+         if (Math.sin(rx * 0.8 + ry * 0.8 + animTimer * 1.5) > 0.5) {
+            ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+            ctx.beginPath(); ctx.moveTo(p.x - 5, p.y + TILE_H/2); ctx.lineTo(p.x + 5, p.y + TILE_H/2); ctx.stroke();
+         }
+
+         ships.forEach(ship => {
+            if (Math.floor(ship.rx) === rx && Math.floor(ship.ry) === ry) {
+                const sp = rotatedGridToScreen(ship.rx, ship.ry);
+                const bob = Math.sin(animTimer * 2 + ship.progress) * 2;
+                ctx.save();
+                ctx.translate(sp.x, sp.y + TILE_H/4 + bob);
+                if (ship.dir === -1) ctx.scale(-1, 1); // 改變船頭方向
+                ctx.font = `${ship.size}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(ship.emoji, 0, 0);
+                ctx.restore();
+            }
+         });
+      }
 
       let bHeight = 0;
+
+      if (cell.type === 20) continue; // 河流單純只繪製基底
 
       if (cell.type === 99) {
         drawIsoTile(p.x, p.y, '#111111', '#000000');
@@ -629,6 +708,37 @@ function render() {
 
       if (cell.type === 1) {
         drawRoadWithMarkings(p.x, p.y, gx, gy);
+      }
+      else if (cell.type === 21) { // 高架橋樑
+        const bY = p.y - 14; // 橋面高度
+        
+        // 橋柱
+        ctx.fillStyle = '#757575';
+        ctx.fillRect(p.x - 3, bY + TILE_H/2, 6, 14);
+
+        // 與地面道路連接的斜坡
+        const rPos = toRotatedGrid(gx, gy);
+        const checkGroundRoad = (drx, dry) => {
+          const nRot = { rx: rPos.rx + drx, ry: rPos.ry + dry };
+          if (nRot.rx >= 0 && nRot.rx < MAP_SIZE && nRot.ry >= 0 && nRot.ry < MAP_SIZE) {
+            const tOrig = fromRotatedGrid(nRot.rx, nRot.ry);
+            return map[tOrig.gy][tOrig.gx].type === 1;
+          }
+          return false;
+        };
+
+        const deckC = {x: p.x, y: bY + TILE_H/2};
+        ctx.strokeStyle = '#4a4a4a';
+        ctx.lineWidth = 10;
+        ctx.lineCap = 'round';
+        // 利用中點繪製完美的連接斜坡，會被上方 deck 自動覆蓋修飾
+        if (checkGroundRoad(0, -1)) { ctx.beginPath(); ctx.moveTo(deckC.x, deckC.y); ctx.lineTo(p.x + TILE_W/4, p.y + TILE_H/4); ctx.stroke(); }
+        if (checkGroundRoad(0, 1))  { ctx.beginPath(); ctx.moveTo(deckC.x, deckC.y); ctx.lineTo(p.x - TILE_W/4, p.y + 3*TILE_H/4); ctx.stroke(); }
+        if (checkGroundRoad(-1, 0)) { ctx.beginPath(); ctx.moveTo(deckC.x, deckC.y); ctx.lineTo(p.x - TILE_W/4, p.y + TILE_H/4); ctx.stroke(); }
+        if (checkGroundRoad(1, 0))  { ctx.beginPath(); ctx.moveTo(deckC.x, deckC.y); ctx.lineTo(p.x + TILE_W/4, p.y + 3*TILE_H/4); ctx.stroke(); }
+        
+        // 橋面本體 (當作高架道路)
+        drawRoadWithMarkings(p.x, bY, gx, gy);
       }
       else if (cell.type === 6) {
         bHeight = 22;
@@ -669,6 +779,17 @@ function render() {
         if (isTier6) drawCyberpunkStructure(p.x, p.y, 22, bHeight, 3);
         else drawBuildingBlock(p.x, p.y, 22, bHeight, '#ce93d8', '#8e24aa', '#4a148c');
         drawFacilityEmoji(p.x, p.y, bHeight + 2, '🩺');
+      }
+      else if (cell.type === 22) {
+        drawIsoTile(p.x, p.y, '#90a4ae', '#546e7a'); // 碼頭地基
+        const isSouth = getSouthmostChecker(cell.rootX, cell.rootY, 2, 4);
+        if (isSouth(rx, ry)) {
+          const cp = rotatedGridToScreen(toRotatedGrid(cell.rootX + 1.0, cell.rootY + 2.0).rx, toRotatedGrid(cell.rootX + 1.0, cell.rootY + 2.0).ry);
+          bHeight = 25;
+          if (isTier6) drawCyberpunkStructure(cp.x, cp.y, 60, bHeight, 2);
+          else drawBuildingBlock(cp.x, cp.y, 60, bHeight, '#ffffff', '#e0e0e0', '#bdbdbd');
+          drawFacilityEmoji(cp.x, cp.y, bHeight + 4, '🚢');
+        }
       }
 
       const isZoned = (cell.type === 2 || cell.type === 3 || cell.type === 4 || cell.type === 10);
@@ -817,6 +938,7 @@ function getPublicFacilityStats() {
   let libCount = 0;
   let airportCount = 0;
   let clinicCount = 0;
+  let cruiseCount = 0;
 
   for (let y = 0; y < MAP_SIZE; y++) {
     for (let x = 0; x < MAP_SIZE; x++) {
@@ -833,12 +955,13 @@ function getPublicFacilityStats() {
       if (c.type === 17 && isRoot) hospCount++;
       if (c.type === 18 && isRoot) clinicCount++;
       if (c.type === 19 && isRoot) airportCount++;
+      if (c.type === 22 && isRoot) cruiseCount++;
     }
   }
 
   const totalFacilityCount = 
     waterPumpCount + hospCount + policeCount + powerPlantCount + 
-    fireCount + sch1Count + sch2Count + libCount + airportCount + clinicCount;
+    fireCount + sch1Count + sch2Count + libCount + airportCount + clinicCount + cruiseCount;
 
   const totalMaintPer30s = 
     (waterPumpCount * 50) +
@@ -850,11 +973,12 @@ function getPublicFacilityStats() {
     (sch2Count * 300) +
     (libCount * 1000) +
     (airportCount * 5000) +
-    (clinicCount * 15000);
+    (clinicCount * 15000) +
+    (cruiseCount * 5000);
 
   return {
     waterPumpCount, hospCount, policeCount, powerPlantCount,
-    fireCount, sch1Count, sch2Count, libCount, airportCount, clinicCount,
+    fireCount, sch1Count, sch2Count, libCount, airportCount, clinicCount, cruiseCount,
     totalFacilityCount, totalMaintPer30s
   };
 }
@@ -880,6 +1004,7 @@ function updatePublicUtilityUI() {
     if (fac.hospCount > 0) details.push(`醫院: ${fac.hospCount}所 ($${fac.hospCount * 5000})`);
     if (fac.clinicCount > 0) details.push(`診所: ${fac.clinicCount}所 ($${fac.clinicCount * 15000})`);
     if (fac.airportCount > 0) details.push(`機場: ${fac.airportCount}所 ($${fac.airportCount * 5000})`);
+    if (fac.cruiseCount > 0) details.push(`碼頭: ${fac.cruiseCount}所 ($${fac.cruiseCount * 5000})`);
     detailEl.innerHTML = details.join(' | ');
   }
 }
@@ -909,7 +1034,7 @@ function simulateCity() {
       let nx = cx + dx, ny = cy + dy;
       if (nx >= 0 && nx < MAP_SIZE && ny >= 0 && ny < MAP_SIZE) {
         let key = `${nx},${ny}`;
-        if (!pVisited.has(key) && map[ny][nx].type !== 0 && map[ny][nx].type !== 99) {
+        if (!pVisited.has(key) && map[ny][nx].type !== 0 && map[ny][nx].type !== 20 && map[ny][nx].type !== 99) {
           pVisited.add(key); pQueue.push([nx, ny]);
         }
       }
@@ -983,11 +1108,13 @@ function triggerFireDisaster() {
     for (let dx = -radius; dx <= radius; dx++) {
       let nx = center.x + dx, ny = center.y + dy;
       if (nx >= 0 && nx < MAP_SIZE && ny >= 0 && ny < MAP_SIZE) {
-        if (Math.hypot(dx, dy) <= radius && map[ny][nx].type !== 0 && map[ny][nx].type !== 1) {
+        // 保護空地(0)、道路(1)、河流(20)、橋樑(21) 不受火災破壞
+        if (Math.hypot(dx, dy) <= radius && ![0, 1, 20, 21].includes(map[ny][nx].type)) {
+          const orig = map[ny][nx].originalType || 0;
           map[ny][nx] = {
             type: 99, level: 0, powered: false, watered: false,
             hasRoad: false, hasPolice: false, hasMedical: false, crimeLevel: 0, abandoned: true,
-            merged: false, deepMerged: false, rootX: nx, rootY: ny
+            merged: false, deepMerged: false, rootX: nx, rootY: ny, originalType: orig
           };
         }
       }
@@ -1057,6 +1184,8 @@ setInterval(() => {
 
   const btnHosp = document.getElementById('btn-hosp');
   const btnClinic = document.getElementById('btn-clinic');
+  const btnBridge = document.getElementById('btn-bridge');
+  const btnCruise = document.getElementById('btn-cruise');
   const btnAirport = document.getElementById('btn-airport');
 
   if (currentTier < 3) {
@@ -1069,6 +1198,20 @@ setInterval(() => {
     btnHosp.innerHTML = '深水埗醫院(4格)🏥<br>$5000 [$5000/期]';
     btnClinic.classList.remove('locked');
     btnClinic.innerHTML = '街坊診所(1格)🩺<br>$1000 [$15k/期]';
+  }
+
+  if (currentTier < 4) {
+    btnBridge.classList.add('locked');
+    btnBridge.innerHTML = '高架橋樑(1格)🌉<br>$5000 [需Lv4解鎖]';
+    btnCruise.classList.add('locked');
+    btnCruise.style.background = '#cfd8dc';
+    btnCruise.innerHTML = '郵輪碼頭(2x4=8格) 🚢<br>$50000 [需Lv4解鎖]';
+  } else {
+    btnBridge.classList.remove('locked');
+    btnBridge.innerHTML = '高架橋樑(1格)🌉<br>$5000';
+    btnCruise.classList.remove('locked');
+    btnCruise.style.background = '#e0f7fa';
+    btnCruise.innerHTML = '郵輪碼頭(2x4=8格) 🚢<br>$50000 [$5000/期]';
   }
 
   if (currentTier < 5) {
@@ -1098,6 +1241,8 @@ setInterval(() => {
   let totalPop = 0, jobs = 0;
   let rCount = 0, cCount = 0, iCount = 0, luxCount = 0, mergedCount = 0;
   let totalCrime = 0, zoneCount = 0;
+  let currentActiveC = 0;
+  let currentActiveI = 0;
 
   for (let y = 0; y < MAP_SIZE; y++) {
     for (let x = 0; x < MAP_SIZE; x++) {
@@ -1110,7 +1255,7 @@ setInterval(() => {
         for (let dy = -2; dy <= 2; dy++) {
           for (let dx = -2; dx <= 2; dx++) {
             let nx = x + dx, ny = y + dy;
-            if (nx >= 0 && nx < MAP_SIZE && ny >= 0 && ny < MAP_SIZE && map[ny][nx].type === 1) nearRoad = true;
+            if (nx >= 0 && nx < MAP_SIZE && ny >= 0 && ny < MAP_SIZE && (map[ny][nx].type === 1 || map[ny][nx].type === 21)) nearRoad = true;
           }
         }
         cell.hasRoad = nearRoad;
@@ -1125,7 +1270,12 @@ setInterval(() => {
         const needsMedical = (currentTier >= 4 && (cell.type === 2 || cell.type === 10));
         const medSatisfied = (!needsMedical || cell.hasMedical);
 
-        const isDeprived = (!cell.hasRoad || !cell.powered || !cell.watered || cell.crimeLevel > 65 || taxRate > 0.12);
+        let isUnemployedPenalty = false;
+        if (isPopulationDraining && (cell.type === 2 || cell.type === 10)) {
+            if (Math.random() < 0.10) isUnemployedPenalty = true; // 流失狀態下，住宅每秒有 10% 機率降級或廢棄
+        }
+
+        const isDeprived = (!cell.hasRoad || !cell.powered || !cell.watered || cell.crimeLevel > 65 || taxRate > 0.12 || isUnemployedPenalty);
         if (isDeprived) {
           if (cell.merged) { cell.merged = false; cell.deepMerged = false; cell.level = Math.max(0, cell.level - 1); }
           else if (cell.level > 0) cell.level--;
@@ -1141,8 +1291,8 @@ setInterval(() => {
         if (!cell.abandoned && !cell.merged) {
           if (cell.type === 2) { totalPop += (cell.level + 1) * 35; rCount++; }
           else if (cell.type === 10) { totalPop += (cell.level + 1) * 65; luxCount++; }
-          else if (cell.type === 3) { jobs += (cell.level + 1) * 25; cCount++; }
-          else if (cell.type === 4) { jobs += (cell.level + 1) * 35; iCount++; }
+          else if (cell.type === 3) { jobs += (cell.level + 1) * 25; cCount++; currentActiveC++; }
+          else if (cell.type === 4) { jobs += (cell.level + 1) * 35; iCount++; currentActiveI++; }
         }
       }
     }
@@ -1174,6 +1324,9 @@ setInterval(() => {
       const c = map[y][x];
       if (c.merged && c.rootX === x && c.rootY === y) {
         mergedCount++;
+        if (c.type === 3) currentActiveC += 4;
+        if (c.type === 4) currentActiveI += 4;
+
         if (currentTier >= 5) {
           if (c.type === 10) totalPop += 2200;
           else if (c.type === 2) totalPop += 1500;
@@ -1191,10 +1344,44 @@ setInterval(() => {
 
   population = totalPop;
   overallCrimeScore = zoneCount > 0 ? Math.floor(totalCrime / zoneCount) : 0;
-  happiness = Math.max(10, Math.min(100, Math.floor(100 - (taxRate * 180) - (overallCrimeScore * 0.4) + (schCount * 6) + (fac.libCount * 10) + (fac.hospCount * 10))));
+  
+  // 失業率計算：每 100人需 1工業格，每 300人需 1商業格
+  let reqI = population / 100;
+  let reqC = population / 300;
+  let unemployedPop = 0;
+  if (population > 0) {
+      let missingI = Math.max(0, reqI - currentActiveI);
+      let missingC = Math.max(0, reqC - currentActiveC);
+      unemployedPop = (missingI * 100) + (missingC * 300);
+      unemployedPop = Math.min(population, unemployedPop); // 確保失業人口不超過總人口
+      currentUnemploymentRate = (unemployedPop / population) * 100;
+  } else {
+      currentUnemploymentRate = 0;
+  }
+
+  // 人口流失狀態機
+  if (currentUnemploymentRate > 8.0) {
+      if (!isPopulationDraining) {
+          isPopulationDraining = true;
+          const banner = document.getElementById('alert-banner');
+          banner.className = 'show warn';
+          banner.innerText = '📉 經濟危機！失業率突破 8%！市民正大量流失，請立即增建「工業區」或「商業區」！';
+          setTimeout(() => banner.className = '', 7000);
+      }
+  } else if (currentUnemploymentRate < 3.0) {
+      if (isPopulationDraining) {
+          isPopulationDraining = false;
+          const banner = document.getElementById('alert-banner');
+          banner.className = 'show save';
+          banner.innerText = '📈 經濟復甦！失業率已降至 3% 以下，人口流失停止，城市恢復生機！';
+          setTimeout(() => banner.className = '', 5000);
+      }
+  }
+
+  happiness = Math.max(10, Math.min(100, Math.floor(100 - (taxRate * 180) - (overallCrimeScore * 0.4) + (schCount * 6) + (fac.libCount * 10) + (fac.hospCount * 10) - (currentUnemploymentRate * 1.5))));
 
   demandI = Math.min(50, Math.max(-50, (population * 0.15 - iCount * 12) + 20 + (0.08 - taxRate) * 150));
-  demandR = Math.min(50, Math.max(-50, (jobs - population * 0.5) + (0.08 - taxRate) * 150));
+  demandR = Math.min(50, Math.max(-50, (jobs - population * 0.5) + (0.08 - taxRate) * 150 - (isPopulationDraining ? 40 : 0)));
   demandC = Math.min(50, Math.max(-50, (population * 0.4 - cCount * 15) + (schCount * 12) + (0.08 - taxRate) * 150));
 
   const baseTax = Math.floor(population * taxRate * 1.6) + (cCount + iCount) * 8 + (luxCount * 22) + (mergedCount * 120);
@@ -1225,6 +1412,13 @@ setInterval(() => {
   document.getElementById('stat-funds').innerText = funds;
   document.getElementById('stat-pop').innerText = population;
   document.getElementById('stat-happy').innerText = `${happiness}%`;
+  
+  const unempEl = document.getElementById('stat-unemp');
+  unempEl.innerText = `${currentUnemploymentRate.toFixed(1)}%`;
+  if (currentUnemploymentRate > 8.0) unempEl.style.color = '#ff1744';
+  else if (currentUnemploymentRate > 3.0) unempEl.style.color = '#ffd600';
+  else unempEl.style.color = '#00e676';
+  
   document.getElementById('stat-timer').innerText = utilityTimer;
 
   updatePublicUtilityUI();
@@ -1240,10 +1434,11 @@ setInterval(() => {
 
 function getSerializedGameState() {
   return {
-    version: '2.0',
+    version: '2.1',
     date: new Date().toISOString(),
     funds, population, happiness, taxRate, tickCount, utilityTimer,
     globalCityTier, hasWarnedLv2, hasCelebratedLv6,
+    currentUnemploymentRate, isPopulationDraining,
     camX, camY, rotation,
     mapData: map // 導出整個網格狀態
   };
@@ -1265,6 +1460,8 @@ function applyDeserializedGameState(data) {
     globalCityTier = Number(data.globalCityTier) || 1;
     hasWarnedLv2 = Boolean(data.hasWarnedLv2);
     hasCelebratedLv6 = Boolean(data.hasCelebratedLv6);
+    currentUnemploymentRate = Number(data.currentUnemploymentRate) || 0;
+    isPopulationDraining = Boolean(data.isPopulationDraining);
     camX = Number(data.camX) || (canvas.width / 2);
     camY = Number(data.camY) || 80;
     rotation = Number(data.rotation) || 0;
@@ -1274,11 +1471,15 @@ function applyDeserializedGameState(data) {
       for (let x = 0; x < MAP_SIZE; x++) {
         if (sourceMap[y] && sourceMap[y][x]) {
           map[y][x] = Object.assign({}, sourceMap[y][x]);
+          // 確保舊存檔相容河流原始地形設定
+          if (map[y][x].originalType === undefined) {
+             map[y][x].originalType = (map[y][x].type === 20 || map[y][x].type === 21) ? 20 : 0;
+          }
         } else {
           map[y][x] = {
             type: 0, level: 0, powered: false, watered: false,
             hasRoad: false, hasPolice: false, hasMedical: false, crimeLevel: 0, abandoned: false,
-            merged: false, deepMerged: false, rootX: x, rootY: y
+            merged: false, deepMerged: false, rootX: x, rootY: y, originalType: 0
           };
         }
       }
@@ -1288,6 +1489,13 @@ function applyDeserializedGameState(data) {
     document.getElementById('stat-funds').innerText = funds;
     document.getElementById('stat-pop').innerText = population;
     document.getElementById('stat-happy').innerText = `${happiness}%`;
+    
+    const unempEl = document.getElementById('stat-unemp');
+    unempEl.innerText = `${currentUnemploymentRate.toFixed(1)}%`;
+    if (currentUnemploymentRate > 8.0) unempEl.style.color = '#ff1744';
+    else if (currentUnemploymentRate > 3.0) unempEl.style.color = '#ffd600';
+    else unempEl.style.color = '#00e676';
+
     document.getElementById('tax-slider').value = Math.round(taxRate * 100);
     document.getElementById('tax-val').innerText = `${Math.round(taxRate * 100)}%`;
     document.getElementById('view-dir').innerText = dirNames[rotation];
@@ -1345,12 +1553,12 @@ function loadFromLocalStorage() {
   }
 }
 
-// 剪貼簿複製代碼 (超方便，100% 不受瀏覽器沙盒限制)
+// 剪貼簿複製代碼
 function copySaveCode() {
   try {
     const data = getSerializedGameState();
     const str = JSON.stringify(data);
-    const encoded = btoa(unescape(encodeURIComponent(str))); // 轉成純文字 base64
+    const encoded = btoa(unescape(encodeURIComponent(str)));
     
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(encoded).then(() => {
@@ -1433,7 +1641,6 @@ setInterval(() => {
   } catch (e) {}
 }, 60000);
 
-// 綁定存讀檔按鈕
 document.getElementById('btn-save').addEventListener('click', saveToLocalStorage);
 document.getElementById('btn-load').addEventListener('click', loadFromLocalStorage);
 document.getElementById('btn-copy-code').addEventListener('click', copySaveCode);
@@ -1534,6 +1741,22 @@ function applyTool(gx, gy) {
     setTimeout(() => banner.className = '', 3500);
     return;
   }
+  
+  if (currentTool === 'bridge' && globalCityTier < 4) {
+    const banner = document.getElementById('alert-banner');
+    banner.className = 'show warn';
+    banner.innerText = '❌ 權限不足：市鎮規模未達第四級，無法興建高架橋樑！';
+    setTimeout(() => banner.className = '', 3500);
+    return;
+  }
+
+  if (currentTool === 'cruise' && globalCityTier < 4) {
+    const banner = document.getElementById('alert-banner');
+    banner.className = 'show warn';
+    banner.innerText = '❌ 權限不足：市鎮規模未達第四級，無法興建郵輪碼頭！';
+    setTimeout(() => banner.className = '', 3500);
+    return;
+  }
 
   if (currentTool === 'airport' && globalCityTier < 5) {
     const banner = document.getElementById('alert-banner');
@@ -1544,7 +1767,8 @@ function applyTool(gx, gy) {
   }
 
   if (currentTool === 'dozer') {
-    if (funds >= cost && map[gy][gx].type !== 0) {
+    // 只能清拆非空地與非河流
+    if (funds >= cost && map[gy][gx].type !== 0 && map[gy][gx].type !== 20) {
       const rx = map[gy][gx].rootX, ry = map[gy][gx].rootY;
       const targetType = map[gy][gx].type;
       funds -= cost;
@@ -1561,84 +1785,41 @@ function applyTool(gx, gy) {
         spanW = 1; spanH = 1;
       } else if (targetType === 19) {
         spanW = 3; spanH = 9;
+      } else if (targetType === 22) {
+        spanW = 2; spanH = 4;
       }
 
       for (let dy = 0; dy < spanH; dy++) {
         for (let dx = 0; dx < spanW; dx++) {
           const tx = rx + dx, ty = ry + dy;
           if (tx < MAP_SIZE && ty < MAP_SIZE) {
+            const orig = map[ty][tx].originalType || 0;
             map[ty][tx] = {
-              type: 0, level: 0, powered: false, watered: false,
+              type: orig, level: 0, powered: false, watered: false,
               hasRoad: false, hasPolice: false, hasMedical: false, crimeLevel: 0, abandoned: false,
-              merged: false, deepMerged: false, rootX: tx, rootY: ty
+              merged: false, deepMerged: false, rootX: tx, rootY: ty, originalType: orig
             };
           }
         }
       }
     }
   }
-  else if (currentTool === 'water' || currentTool === 'clinic' || currentTool === 'spk') {
-    if (map[gy][gx].type === 0 && funds >= cost) {
-      funds -= cost;
-      const typeMap = { water: 6, clinic: 18, spk: 7 };
-      map[gy][gx] = {
-        type: typeMap[currentTool], level: 0, powered: true, watered: true,
-        hasRoad: false, hasPolice: false, hasMedical: true, crimeLevel: 0, abandoned: false,
-        merged: false, deepMerged: false, rootX: gx, rootY: gy
-      };
-    }
-  }
-  else if (currentTool === 'bball') {
-    if (gx + 1 < MAP_SIZE && map[gy][gx].type === 0 && map[gy][gx+1].type === 0 && funds >= cost) {
-      funds -= cost;
-      for (let dx = 0; dx < 2; dx++) {
-        map[gy][gx + dx] = {
-          type: 13, level: 0, powered: true, watered: true,
-          hasRoad: false, hasPolice: false, hasMedical: false, crimeLevel: 0, abandoned: false,
-          merged: false, deepMerged: false, rootX: gx, rootY: gy
-        };
-      }
-    }
-  }
-  else if (currentTool === 'mpark' || currentTool === 'stadium') {
-    if (gx + 2 < MAP_SIZE && gy + 1 < MAP_SIZE) {
+  else if (currentTool === 'cruise') {
+    if (gx + 1 < MAP_SIZE && gy + 3 < MAP_SIZE) {
       let canBuild = true;
-      for (let dy = 0; dy < 2; dy++) {
-        for (let dx = 0; dx < 3; dx++) {
+      for (let dy = 0; dy < 4; dy++) {
+        for (let dx = 0; dx < 2; dx++) {
           if (map[gy + dy][gx + dx].type !== 0) canBuild = false;
         }
       }
       if (canBuild && funds >= cost) {
         funds -= cost;
-        const bType = (currentTool === 'mpark') ? 12 : 14;
-        for (let dy = 0; dy < 2; dy++) {
-          for (let dx = 0; dx < 3; dx++) {
+        for (let dy = 0; dy < 4; dy++) {
+          for (let dx = 0; dx < 2; dx++) {
             map[gy + dy][gx + dx] = {
-              type: bType, level: 0, powered: true, watered: true,
+              type: 22, level: 0, powered: true, watered: true,
               hasRoad: false, hasPolice: false, hasMedical: false, crimeLevel: 0, abandoned: false,
-              merged: false, deepMerged: false, rootX: gx, rootY: gy
-            };
-          }
-        }
-      }
-    }
-  }
-  else if (currentTool === 'airport') {
-    if (gx + 2 < MAP_SIZE && gy + 8 < MAP_SIZE) {
-      let canBuild = true;
-      for (let dy = 0; dy < 9; dy++) {
-        for (let dx = 0; dx < 3; dx++) {
-          if (map[gy + dy][gx + dx].type !== 0) canBuild = false;
-        }
-      }
-      if (canBuild && funds >= cost) {
-        funds -= cost;
-        for (let dy = 0; dy < 9; dy++) {
-          for (let dx = 0; dx < 3; dx++) {
-            map[gy + dy][gx + dx] = {
-              type: 19, level: 0, powered: true, watered: true,
-              hasRoad: false, hasPolice: false, hasMedical: false, crimeLevel: 0, abandoned: false,
-              merged: false, deepMerged: false, rootX: gx, rootY: gy
+              merged: false, deepMerged: false, rootX: gx, rootY: gy, originalType: 0
             };
           }
         }
@@ -1656,7 +1837,7 @@ function applyTool(gx, gy) {
             map[gy + dy][gx + dx] = {
               type: typeMap[currentTool], level: 0, powered: true, watered: true,
               hasRoad: false, hasPolice: false, hasMedical: true, crimeLevel: 0, abandoned: false,
-              merged: false, deepMerged: false, rootX: gx, rootY: gy
+              merged: false, deepMerged: false, rootX: gx, rootY: gy, originalType: 0
             };
           }
         }
@@ -1664,13 +1845,14 @@ function applyTool(gx, gy) {
     }
   }
   else {
+    // 普通建設 (馬路, 區劃)，只限空地 (無法直接蓋在河流)
     if (funds >= cost && map[gy][gx].type === 0) {
       funds -= cost;
       const typeMap = { road: 1, res: 2, lux: 10, com: 3, ind: 4 };
       map[gy][gx] = {
         type: typeMap[currentTool], level: 0, powered: false, watered: false,
         hasRoad: false, hasPolice: false, hasMedical: false, crimeLevel: 0, abandoned: false,
-        merged: false, deepMerged: false, rootX: gx, rootY: gy
+        merged: false, deepMerged: false, rootX: gx, rootY: gy, originalType: 0
       };
     }
   }
@@ -1687,6 +1869,13 @@ document.querySelectorAll('.tools-grid .classic-btn').forEach(btn => {
         const banner = document.getElementById('alert-banner');
         banner.className = 'show warn';
         banner.innerText = '❌ 權限不足：市鎮規模未達第三級，暫時無法興建醫療設施！';
+        setTimeout(() => banner.className = '', 3500);
+        return;
+      }
+      if (btn.dataset.tool === 'cruise' && globalCityTier < 4) {
+        const banner = document.getElementById('alert-banner');
+        banner.className = 'show warn';
+        banner.innerText = '❌ 權限不足：市鎮規模未達第四級，無法興建郵輪碼頭！';
         setTimeout(() => banner.className = '', 3500);
         return;
       }
@@ -1715,4 +1904,3 @@ render();
 </script>
 </body>
 </html>
-```
