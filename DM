@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>放學提示系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a1a2e; /* 深藍色背景，類似圖片 */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            user-select: none; /* 防止選中文字 */
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            pointer-events: none; /* 讓點擊事件穿透 UI 層到 Canvas */
+            z-index: 10;
+        }
+        .header {
+            background-color: rgba(30, 58, 138, 0.8); /* 半透明深藍色頂部欄 */
+            padding: 10px;
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            pointer-events: auto;
+        }
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .btn {
+            background-color: #ef4444; /* 紅色按鈕 */
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .btn:hover {
+            background-color: #dc2626;
+        }
+        .btn:active {
+            transform: scale(0.95);
+        }
+        .btn-blue {
+            background-color: #3b82f6; /* 藍色按鈕 */
+        }
+        .btn-blue:hover {
+            background-color: #2563eb;
+        }
+    </style>
+    <!-- 引入 Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- 引入 OrbitControls (可選，用於旋轉視角) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <!-- UI 層 -->
+    <div id="ui-layer">
+        <div class="header">Shamshuipo Kaifong Welfare Association Primary School</div>
+        <div class="controls">
+            <button class="btn" id="btn-reset-classes">重置班級</button>
+            <button class="btn btn-blue" id="btn-reset-camera">重置視角</button>
+        </div>
+    </div>
+
+    <!-- 3D 畫布容器 -->
+    <div id="canvas-container"></div>
+
+    <script>
+        // 場景設置
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color('#1a1a2e'); // 背景色
+
+        // 相機設置
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // 拉遠相機距離，以容納上排5個班級的寬度
+        const initialCameraPos = new THREE.Vector3(0, 0, 22);
+        camera.position.copy(initialCameraPos);
+
+        // 渲染器設置
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        // 控制器設置 (允許用戶滑動查看，如同圖片中可能的情況)
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.enablePan = false;
+        controls.maxDistance = 30;
+        controls.minDistance = 5;
+
+        // 光照設置
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // 環境光
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 20, 10);
+        scene.add(directionalLight);
+
+        // 更新班級數據：移除 2B，剩下 9 個班級
+        const classNames = ['2A', '3A', '3B', '4A', '4B', '5A', '5B', '6A', '6B'];
+        const classBlocks = [];
+        
+        // 方塊材質顏色
+        const colorRed = 0xe74c3c;
+        const colorGreen = 0x2ecc71;
+        const colorWhite = 0xffffff;
+
+        // 創建文字紋理的函數
+        function createTextTexture(text, isDismissed = false) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const context = canvas.getContext('2d');
+
+            // 填充背景色 (紅色或綠色)
+            context.fillStyle = isDismissed ? '#2ecc71' : '#e74c3c';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 繪製白色邊框 (模擬立體感)
+            context.strokeStyle = 'white';
+            context.lineWidth = 20;
+            context.strokeRect(10, 10, canvas.width-20, canvas.height-20);
+
+            // 設置文字樣式 (班級名稱)
+            context.fillStyle = 'white';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            
+            if (isDismissed) {
+                // 已放學狀態：文字稍微上移，下方加入「已放學」
+                context.font = 'bold 150px Arial';
+                context.fillText(text, canvas.width / 2, canvas.height / 2 - 40);
+                
+                context.font = 'bold 80px "Microsoft JhengHei", "Heiti TC", sans-serif';
+                context.fillText('已放學', canvas.width / 2, canvas.height / 2 + 80);
+            } else {
+                // 正常狀態：只有班級名稱居中
+                context.font = 'bold 200px Arial';
+                context.fillText(text, canvas.width / 2, canvas.height / 2);
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            // 確保紋理清晰
+            texture.generateMipmaps = true;
+            texture.minFilter = THREE.LinearMipmapLinearFilter;
+            return texture;
+        }
+
+        // 佈局參數
+        const boxSize = 3.5; // 方塊大小
+        const gap = 0.8;     // 方塊間距
+        
+        // 創建方塊
+        classNames.forEach((name, index) => {
+            const geometry = new THREE.BoxGeometry(boxSize, boxSize, 0.5); // 稍微扁平的方塊
+            
+            // 為六個面創建材質，只有正面顯示文字
+            const materials = [
+                new THREE.MeshStandardMaterial({ color: colorRed }), // 右
+                new THREE.MeshStandardMaterial({ color: colorRed }), // 左
+                new THREE.MeshStandardMaterial({ color: colorRed }), // 上
+                new THREE.MeshStandardMaterial({ color: colorRed }), // 下
+                new THREE.MeshStandardMaterial({ map: createTextTexture(name, false) }), // 前 (帶文字)
+                new THREE.MeshStandardMaterial({ color: colorRed })  // 後
+            ];
+
+            const mesh = new THREE.Mesh(geometry, materials);
+            
+            // 設置userData保存班級信息和狀態
+            mesh.userData = {
+                className: name,
+                isDismissed: false,
+                originalMaterials: materials,
+                frontMaterialIndex: 4
+            };
+
+            // 排版邏輯：上排 5 個，下排 4 個
+            const isTopRow = index < 5;
+            const itemsInRow = isTopRow ? 5 : 4;
+            const indexInThisRow = isTopRow ? index : (index - 5);
+
+            // 計算當前排的總寬度以便居中
+            const rowTotalWidth = (itemsInRow * boxSize) + ((itemsInRow - 1) * gap);
+            const startX = -rowTotalWidth / 2 + boxSize / 2;
+            
+            // 計算 Y 座標 (兩排的中心點為 Y=0)
+            const yOffset = (boxSize + gap) / 2;
+
+            mesh.position.x = startX + indexInThisRow * (boxSize + gap);
+            mesh.position.y = isTopRow ? yOffset : -yOffset;
+            mesh.position.z = 0;
+
+            scene.add(mesh);
+            classBlocks.push(mesh);
+        });
+
+        // 射線投射用於點擊檢測
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        // 處理點擊事件
+        function onMouseClick(event) {
+            // 將鼠標位置歸一化為設備坐標. -1 到 +1 之間.
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            // 通過攝像機和鼠標位置更新射線
+            raycaster.setFromCamera(mouse, camera);
+
+            // 計算物體和射線的焦點
+            const intersects = raycaster.intersectObjects(classBlocks);
+
+            if (intersects.length > 0) {
+                const clickedBlock = intersects[0].object;
+                
+                // 如果還沒放學，則觸發放學
+                if (!clickedBlock.userData.isDismissed) {
+                    dismissClass(clickedBlock);
+                }
+            }
+        }
+
+        window.addEventListener('click', onMouseClick, false);
+        // 也支持觸摸
+        window.addEventListener('touchstart', (e) => {
+            if(e.touches.length > 0) {
+                mouse.x = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(classBlocks);
+                if (intersects.length > 0) {
+                    const clickedBlock = intersects[0].object;
+                    if (!clickedBlock.userData.isDismissed) {
+                        dismissClass(clickedBlock);
+                    }
+                }
+            }
+        }, {passive: true});
+
+        // 放學邏輯
+        function dismissClass(block) {
+            block.userData.isDismissed = true;
+            
+            // 創建新的綠色材質陣列
+            const newMaterials = [
+                new THREE.MeshStandardMaterial({ color: colorGreen }), // 右
+                new THREE.MeshStandardMaterial({ color: colorGreen }), // 左
+                new THREE.MeshStandardMaterial({ color: colorGreen }), // 上
+                new THREE.MeshStandardMaterial({ color: colorGreen }), // 下
+                new THREE.MeshStandardMaterial({ map: createTextTexture(block.userData.className, true) }), // 前 (變綠且有字)
+                new THREE.MeshStandardMaterial({ color: colorGreen })  // 後
+            ];
+            
+            block.material = newMaterials;
+
+            // 簡單的點擊動畫 (縮放一下)
+            const originalScale = block.scale.clone();
+            block.scale.set(0.9, 0.9, 0.9);
+            setTimeout(() => {
+                block.scale.copy(originalScale);
+            }, 100);
+
+            // 觸發煙花效果在方塊上方
+            createFirework(block.position.clone().add(new THREE.Vector3(0, 2, 0)));
+        }
+
+        // 煙花粒子系統
+        const fireworks = [];
+
+        function createFirework(position) {
+            const particleCount = 100;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const velocities = [];
+            const colors = new Float32Array(particleCount * 3);
+            
+            // 隨機煙花顏色
+            const color = new THREE.Color();
+            color.setHSL(Math.random(), 1.0, 0.5);
+
+            for (let i = 0; i < particleCount; i++) {
+                // 初始位置
+                positions[i * 3] = position.x;
+                positions[i * 3 + 1] = position.y;
+                positions[i * 3 + 2] = position.z;
+
+                // 爆炸速度 (球形分佈)
+                const phi = Math.acos( -1 + ( 2 * i ) / particleCount );
+                const theta = Math.sqrt( particleCount * Math.PI ) * phi;
+                
+                // 速度大小
+                const speed = 1 + Math.random() * 3;
+                
+                velocities.push(new THREE.Vector3(
+                    speed * Math.cos(theta) * Math.sin(phi),
+                    speed * Math.sin(theta) * Math.sin(phi),
+                    speed * Math.cos(phi)
+                ));
+
+                // 顏色
+                colors[i * 3] = color.r;
+                colors[i * 3 + 1] = color.g;
+                colors[i * 3 + 2] = color.b;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.2,
+                vertexColors: true,
+                transparent: true,
+                opacity: 1,
+                blending: THREE.AdditiveBlending // 讓煙花發光
+            });
+
+            const points = new THREE.Points(geometry, material);
+            scene.add(points);
+
+            fireworks.push({
+                points: points,
+                velocities: velocities,
+                age: 0,
+                maxAge: 60 // 存活幀數
+            });
+        }
+
+        // UI 按鈕邏輯
+        document.getElementById('btn-reset-classes').addEventListener('click', () => {
+            classBlocks.forEach(block => {
+                if(block.userData.isDismissed) {
+                    block.userData.isDismissed = false;
+                    
+                    // 恢復紅色材質
+                    const originalMaterials = [
+                        new THREE.MeshStandardMaterial({ color: colorRed }),
+                        new THREE.MeshStandardMaterial({ color: colorRed }),
+                        new THREE.MeshStandardMaterial({ color: colorRed }),
+                        new THREE.MeshStandardMaterial({ color: colorRed }),
+                        new THREE.MeshStandardMaterial({ map: createTextTexture(block.userData.className, false) }),
+                        new THREE.MeshStandardMaterial({ color: colorRed })
+                    ];
+                    block.material = originalMaterials;
+                }
+            });
+        });
+
+        document.getElementById('btn-reset-camera').addEventListener('click', () => {
+            camera.position.copy(initialCameraPos);
+            controls.target.set(0, 0, 0);
+            controls.update();
+        });
+
+        // 處理窗口調整大小
+        window.addEventListener('resize', onWindowResize, false);
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // 動畫循環
+        function animate() {
+            requestAnimationFrame(animate);
+
+            controls.update(); // 只需要在 enableDamping 或 autoRotate 時調用
+
+            // 更新煙花粒子
+            for (let i = fireworks.length - 1; i >= 0; i--) {
+                const fw = fireworks[i];
+                const positions = fw.points.geometry.attributes.position.array;
+
+                for (let j = 0; j < positions.length / 3; j++) {
+                    // 更新位置
+                    positions[j * 3] += fw.velocities[j].x * 0.1;
+                    positions[j * 3 + 1] += fw.velocities[j].y * 0.1;
+                    positions[j * 3 + 2] += fw.velocities[j].z * 0.1;
+                    
+                    // 添加重力影響
+                    fw.velocities[j].y -= 0.05;
+                }
+
+                fw.points.geometry.attributes.position.needsUpdate = true;
+                
+                // 淡出
+                fw.age++;
+                fw.points.material.opacity = 1 - (fw.age / fw.maxAge);
+
+                // 移除死亡的煙花
+                if (fw.age >= fw.maxAge) {
+                    scene.remove(fw.points);
+                    fw.points.geometry.dispose();
+                    fw.points.material.dispose();
+                    fireworks.splice(i, 1);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // 開始動畫
+        window.onload = function() {
+            animate();
+        };
+
+    </script>
+</body>
+</html>
