@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>蜘蛛俠：蜘蛛絲飛躍 Spider-Man Web Swing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden;
+            background-color: #0b0f19;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        /* Spidey Sense Flashing Effect */
+        @keyframes spideySenseGlow {
+            0% { box-shadow: inset 0 0 0px rgba(250, 204, 21, 0); }
+            50% { box-shadow: inset 0 0 50px rgba(250, 204, 21, 0.8), inset 0 0 100px rgba(239, 68, 68, 0.6); }
+            100% { box-shadow: inset 0 0 0px rgba(250, 204, 21, 0); }
+        }
+        .spidey-sense-active {
+            animation: spideySenseGlow 0.4s infinite alternate;
+        }
+        @keyframes electricPulse {
+            0% { box-shadow: 0 0 5px #06b6d4, 0 0 15px #3b82f6; filter: hue-rotate(0deg); }
+            50% { box-shadow: 0 0 15px #a855f7, 0 0 30px #06b6d4; filter: hue-rotate(90deg); }
+            100% { box-shadow: 0 0 5px #06b6d4, 0 0 15px #3b82f6; filter: hue-rotate(0deg); }
+        }
+        .electric-glow {
+            animation: electricPulse 0.6s infinite alternate;
+        }
+        .joystick-base {
+            width: 110px;
+            height: 110px;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
+            border: 2px solid rgba(56, 189, 248, 0.4);
+            border-radius: 50%;
+            position: relative;
+            touch-action: none;
+        }
+        .joystick-stick {
+            width: 46px;
+            height: 46px;
+            background: radial-gradient(circle at 30% 30%, #38bdf8, #0284c7);
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.8);
+            pointer-events: none;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden select-none text-white">
+
+    <!-- Canvas Game View -->
+    <div id="spidey-sense-overlay" class="absolute inset-0 pointer-events-none z-10"></div>
+    <canvas id="gameCanvas" class="absolute inset-0 z-0"></canvas>
+
+    <!-- Top HUD Interface -->
+    <div class="absolute top-4 left-4 right-4 z-20 flex justify-between items-start pointer-events-none">
+        <!-- Health & Web Fluid Bars -->
+        <div class="flex flex-col gap-2 w-48 sm:w-64 glass-panel p-3 rounded-2xl pointer-events-auto">
+            <!-- Health Bar -->
+            <div>
+                <div class="flex justify-between text-xs font-bold mb-1 tracking-wider text-red-400">
+                    <span><i class="fa-solid fa-heart mr-1"></i> 生命值 (HP)</span>
+                    <span id="hp-text">100%</span>
+                </div>
+                <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden p-0.5 border border-slate-700">
+                    <div id="hp-bar" class="bg-gradient-to-r from-red-600 to-red-400 h-full rounded-full transition-all duration-200" style="width: 100%;"></div>
+                </div>
+            </div>
+            <!-- Web Fluid Bar -->
+            <div>
+                <div class="flex justify-between text-xs font-bold mb-1 tracking-wider text-cyan-400">
+                    <span><i class="fa-solid fa-bolt mr-1"></i> 蜘蛛絲能量</span>
+                    <span id="web-text">100%</span>
+                </div>
+                <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden p-0.5 border border-slate-700">
+                    <div id="web-bar" class="bg-gradient-to-r from-cyan-500 to-blue-400 h-full rounded-full transition-all duration-150" style="width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Score & Distance HUD -->
+        <div class="glass-panel px-5 py-3 rounded-2xl text-center pointer-events-auto flex flex-col items-center">
+            <div class="text-xs uppercase tracking-widest text-slate-400 font-bold">飛躍距離</div>
+            <div class="text-2xl sm:text-3xl font-extrabold text-amber-400 font-mono tracking-tight" id="dist-display">0 <span class="text-sm font-normal text-slate-300">m</span></div>
+            <div class="text-xs text-slate-300 mt-0.5 font-semibold">得分: <span id="score-display" class="text-white">0</span></div>
+        </div>
+    </div>
+
+    <!-- Combo & Notification Toast -->
+    <div id="combo-toast" class="absolute top-28 left-1/2 -translate-x-1/2 z-20 pointer-events-none opacity-0 transform -translate-y-4 transition-all duration-300 text-center">
+        <span id="combo-text" class="text-2xl sm:text-3xl font-black italic bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 via-amber-400 to-red-500 drop-shadow-md">
+            GREAT SWING!
+        </span>
+    </div>
+
+    <!-- On-Screen Controls: Virtual Joystick (Left) & Web Action Skill Buttons (Right) -->
+    <div class="absolute bottom-6 left-6 right-6 z-20 flex justify-between items-end pointer-events-none">
+        <!-- Virtual Joystick Area (Left) -->
+        <div class="pointer-events-auto flex flex-col items-center gap-1">
+            <div id="joystick-container" class="joystick-base flex items-center justify-center shadow-2xl">
+                <div id="joystick-stick" class="joystick-stick"></div>
+            </div>
+            <span class="text-[10px] font-bold tracking-wider text-slate-400 bg-slate-900/80 px-2 py-0.5 rounded-full border border-slate-700">方向搖桿</span>
+        </div>
+
+        <!-- Action Buttons (Right) -->
+        <div class="flex flex-col sm:flex-row gap-2.5 pointer-events-auto">
+            <!-- Attack Web Shot Button -->
+            <button id="btn-attack-web" class="glass-panel px-4 py-3 rounded-2xl bg-gradient-to-r from-amber-500/80 to-red-600/80 active:scale-95 transition-all flex items-center gap-2 border border-amber-300/40 shadow-lg group">
+                <div class="w-8 h-8 rounded-xl bg-amber-400/20 flex items-center justify-center text-amber-300 text-lg group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-bullseye"></i>
+                </div>
+                <div class="text-left hidden sm:block">
+                    <div class="text-xs font-black text-amber-200 uppercase">攻擊蛛絲 [Q]</div>
+                    <div class="text-[10px] text-slate-300">擊碎障礙物</div>
+                </div>
+            </button>
+
+            <!-- Electric Web Shock Button -->
+            <button id="btn-electric-web" class="glass-panel px-4 py-3 rounded-2xl bg-gradient-to-r from-cyan-600/80 to-blue-600/80 active:scale-95 transition-all flex items-center gap-2 border border-cyan-300/40 shadow-lg group electric-glow">
+                <div class="w-8 h-8 rounded-xl bg-cyan-400/20 flex items-center justify-center text-cyan-300 text-lg group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-bolt-lightning"></i>
+                </div>
+                <div class="text-left hidden sm:block">
+                    <div class="text-xs font-black text-cyan-200 uppercase">電擊蛛絲 [E]</div>
+                    <div class="text-[10px] text-slate-300">雷擊範圍清場</div>
+                </div>
+            </button>
+
+            <!-- Mobile Boost Button -->
+            <button id="mobile-boost-btn" class="glass-panel w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-red-600/80 active:bg-red-500 border-2 border-red-400 flex items-center justify-center text-white text-xl shadow-lg active:scale-95 transition-transform">
+                <i class="fa-solid fa-rocket"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Start Game / Instructions Modal -->
+    <div id="start-modal" class="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+        <div class="glass-panel max-w-md w-full p-6 sm:p-8 rounded-3xl text-center border border-red-500/30 shadow-2xl relative overflow-hidden">
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-red-600/20 rounded-full blur-2xl"></div>
+            <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-blue-600/20 rounded-full blur-2xl"></div>
+
+            <div class="w-20 h-20 bg-gradient-to-tr from-red-600 to-red-500 rounded-full mx-auto flex items-center justify-center shadow-lg shadow-red-600/40 mb-4 border-2 border-white/20">
+                <i class="fa-solid fa-spider text-4xl text-white"></i>
+            </div>
+            
+            <h1 class="text-3xl font-black tracking-wide text-white mb-2">蜘蛛俠：高空飛躍</h1>
+            <p class="text-slate-300 text-sm mb-5">全新加入搖桿操控、攻擊蛛絲與電擊蛛絲！擊退綠魔，閃耀紐約天際線！</p>
+
+            <div class="bg-slate-900/60 rounded-2xl p-4 mb-6 text-left text-xs space-y-2.5 border border-slate-800">
+                <div class="flex items-center gap-3">
+                    <span class="bg-slate-800 px-2 py-1 rounded text-cyan-400 font-mono">觸控 / 搖桿</span>
+                    <span class="text-slate-300">拖曳左下角搖桿精準控制擺盪方向與加速</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="bg-amber-500/20 border border-amber-500/40 px-2 py-1 rounded text-amber-300 font-mono">Q 鍵 / 按鈕</span>
+                    <span class="text-slate-300">發射<b>攻擊蜘蛛絲</b>擊碎前方南瓜炸彈</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="bg-cyan-500/20 border border-cyan-500/40 px-2 py-1 rounded text-cyan-300 font-mono">E 鍵 / 按鈕</span>
+                    <span class="text-slate-300">釋放<b>電擊蜘蛛絲</b>造成全螢幕電擊波</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="bg-slate-800 px-2 py-1 rounded text-red-400 font-mono">蜘蛛感應</span>
+                    <span class="text-slate-300">危險接近時閃爍，提示進行攻擊或閃避</span>
+                </div>
+            </div>
+
+            <button id="start-btn" class="w-full py-4 bg-gradient-to-r from-red-600 via-red-500 to-blue-600 hover:from-red-500 hover:to-blue-500 text-white font-extrabold text-lg rounded-2xl shadow-xl shadow-red-900/40 active:scale-95 transition-all flex items-center justify-center gap-2">
+                <i class="fa-solid fa-play"></i> 開始飛躍
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameover-modal" class="absolute inset-0 z-30 hidden flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4">
+        <div class="glass-panel max-w-sm w-full p-6 rounded-3xl text-center border border-slate-700 shadow-2xl">
+            <div class="w-16 h-16 bg-red-950/80 text-red-500 border border-red-500/30 rounded-2xl mx-auto flex items-center justify-center text-3xl mb-4">
+                <i class="fa-solid fa-skull"></i>
+            </div>
+            
+            <h2 class="text-2xl font-black text-white mb-1">任務結束</h2>
+            <p class="text-slate-400 text-xs mb-6">蜘蛛俠暫時倒下了，但紐約依然需要你！</p>
+
+            <div class="bg-slate-900/80 rounded-2xl p-4 mb-6 space-y-3 text-sm">
+                <div class="flex justify-between items-center text-slate-300">
+                    <span>最終飛躍距離:</span>
+                    <span id="final-dist" class="font-bold text-amber-400 font-mono text-lg">0 m</span>
+                </div>
+                <div class="flex justify-between items-center text-slate-300">
+                    <span>總得分:</span>
+                    <span id="final-score" class="font-bold text-white font-mono text-lg">0</span>
+                </div>
+                <div class="flex justify-between items-center text-slate-300 border-t border-slate-800 pt-2">
+                    <span>最高紀錄:</span>
+                    <span id="best-dist" class="font-bold text-cyan-400 font-mono text-lg">0 m</span>
+                </div>
+            </div>
+
+            <button id="restart-btn" class="w-full py-3.5 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-bold text-base rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                <i class="fa-solid fa-rotate-right"></i> 再次挑戰
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Web Audio Synthesizer for Retro/Action SFX
+        const AudioEngine = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            },
+            playThwip() { // Web shoot sound
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.12);
+                    
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+                    
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.12);
+                } catch(e){}
+            },
+            playAttackWeb() { // High velocity web projectile shoot SFX
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.1);
+                    
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                    
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.1);
+                } catch(e){}
+            },
+            playElectricSfx() { // High voltage lightning buzz SFX
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(900, this.ctx.currentTime + 0.08);
+                    osc.frequency.linearRampToValueAtTime(150, this.ctx.currentTime + 0.25);
+                    
+                    gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                    
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.25);
+                } catch(e){}
+            },
+            playWhoosh() { // High speed air swing sound
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.15);
+                    
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                    
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.2);
+                } catch(e){}
+            },
+            playCoin() { // Item pickup sound
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); // C5
+                    osc.frequency.setValueAtTime(659.25, this.ctx.currentTime + 0.08); // E5
+                    osc.frequency.setValueAtTime(783.99, this.ctx.currentTime + 0.16); // G5
+                    
+                    gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                    
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.3);
+                } catch(e){}
+            },
+            playExplosion() { // Bomb hit sound
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.3);
+                    
+                    gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                    
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.3);
+                } catch(e){}
+            }
+        };
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Physics Constants
+        const GRAVITY = 0.45;
+        const AIR_DRAG = 0.992;
+        const SWING_FORCE = 0.35;
+        const ROPE_MIN_LEN = 60;
+
+        // Game State Variables
+        let gameState = 'START'; // 'START', 'PLAYING', 'GAMEOVER'
+        let cameraX = 0;
+        let cameraY = 0;
+        let score = 0;
+        let distanceMeters = 0;
+        let bestDistance = parseInt(localStorage.getItem('spidey_best_dist') || '0');
+
+        // Input Tracking
+        const keys = { left: false, right: false, space: false };
+        let pointerDown = false;
+        let pointerPos = { x: 0, y: 0 };
+
+        // Virtual Joystick State
+        const joystick = {
+            active: false,
+            startX: 0,
+            startY: 0,
+            vectorX: 0, // -1.0 to 1.0
+            vectorY: 0  // -1.0 to 1.0
+        };
+
+        // Resize Canvas dynamically
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class WebProjectile {
+            constructor(x, y, vx, vy, type = 'ATTACK') {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.type = type; // 'ATTACK', 'ELECTRIC'
+                this.radius = type === 'ELECTRIC' ? 12 : 8;
+                this.life = 1.0;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= 0.015;
+            }
+
+            draw() {
+                const screenX = this.x - cameraX;
+                const screenY = this.y - cameraY;
+
+                ctx.save();
+                ctx.translate(screenX, screenY);
+
+                if (this.type === 'ATTACK') {
+                    // Fast Web Bullet
+                    ctx.fillStyle = '#ffffff';
+                    ctx.shadowColor = '#f59e0b';
+                    ctx.shadowBlur = 10;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Web strands trailing behind
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(-this.vx * 2, -this.vy * 2);
+                    ctx.stroke();
+                } else if (this.type === 'ELECTRIC') {
+                    // Electric Orb Shock
+                    ctx.fillStyle = '#06b6d4';
+                    ctx.shadowColor = '#a855f7';
+                    ctx.shadowBlur = 15;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Lightning Crackles
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    for (let i = 0; i < 4; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const dist = this.radius + Math.random() * 8;
+                        ctx.moveTo(0, 0);
+                        ctx.lineTo(Math.cos(angle) * dist, Math.sin(angle) * dist);
+                    }
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        class SpiderMan {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = 200;
+                this.y = canvas.height / 2 - 100;
+                this.vx = 9;
+                this.vy = -6;
+                this.radius = 18;
+                this.hp = 100;
+                this.webFluid = 100;
+                this.rotation = 0;
+                this.flipAngle = 0;
+                this.electricTimer = 0; // Duration of electric web aura
+                
+                // Web grapple state
+                this.attached = false;
+                this.anchor = { x: 0, y: 0 };
+                this.ropeLength = 0;
+            }
+
+            detachWeb() {
+                if (this.attached) {
+                    this.attached = false;
+                    // Launch boost momentum on releasing web
+                    this.vx *= 1.25;
+                    if (this.vy < 0) this.vy *= 1.15;
+                    AudioEngine.playWhoosh();
+                }
+            }
+
+            attachWeb(targetX, targetY) {
+                if (this.webFluid < 5) return;
+
+                let anchorX = targetX;
+                let anchorY = targetY;
+
+                // Smart Auto-Targeting: Automatically aim at the nearest high roof edge ahead of player
+                if (!targetY || targetY >= this.y - 40) {
+                    let bestB = null;
+                    let minDist = Infinity;
+                    buildings.forEach(b => {
+                        const roofCenterX = b.x + b.width / 2;
+                        const dist = Math.hypot(roofCenterX - (this.x + 180), b.y - (this.y - 260));
+                        if (roofCenterX > this.x - 80 && roofCenterX < this.x + 650 && b.y < this.y + 100) {
+                            if (dist < minDist) {
+                                minDist = dist;
+                                bestB = b;
+                            }
+                        }
+                    });
+
+                    if (bestB) {
+                        anchorX = bestB.x + bestB.width / 2;
+                        anchorY = bestB.y;
+                    } else {
+                        anchorX = this.x + 220;
+                        anchorY = Math.max(60, this.y - 380);
+                    }
+                }
+
+                this.anchor.x = anchorX;
+                this.anchor.y = anchorY;
+                const dx = this.x - this.anchor.x;
+                const dy = this.y - this.anchor.y;
+                this.ropeLength = Math.hypot(dx, dy);
+
+                if (this.ropeLength > 30) {
+                    this.attached = true;
+                    AudioEngine.playThwip();
+                    createWebParticles(anchorX, anchorY);
+                }
+            }
+
+            update() {
+                // Natural physics forces
+                this.vy += GRAVITY;
+                this.vx *= AIR_DRAG;
+                this.vy *= AIR_DRAG;
+
+                if (this.electricTimer > 0) {
+                    this.electricTimer--;
+                }
+
+                // Apply Joystick forces
+                if (joystick.active) {
+                    this.vx += joystick.vectorX * SWING_FORCE * 1.3;
+                    if (this.attached) {
+                        this.vy += joystick.vectorY * SWING_FORCE * 0.9;
+                    }
+                }
+
+                // Web constraint physics (Pendulum spring physics)
+                if (this.attached) {
+                    const dx = this.x - this.anchor.x;
+                    const dy = this.y - this.anchor.y;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (dist > this.ropeLength) {
+                        const nx = dx / dist;
+                        const ny = dy / dist;
+                        
+                        // Project velocity onto radial vector
+                        const velProj = this.vx * nx + this.vy * ny;
+                        
+                        if (velProj > 0) {
+                            this.vx -= nx * velProj * 1.02;
+                            this.vy -= ny * velProj * 1.02;
+                        }
+
+                        // Distance correction constraint
+                        this.x = this.anchor.x + nx * this.ropeLength;
+                        this.y = this.anchor.y + ny * this.ropeLength;
+                    }
+
+                    // Keyboard Swing momentum boost based on user inputs
+                    if (keys.right) this.vx += SWING_FORCE;
+                    if (keys.left) this.vx -= SWING_FORCE;
+
+                    // Gradually consume web fluid while holding
+                    this.webFluid = Math.max(0, this.webFluid - 0.15);
+                    if (this.webFluid <= 0) {
+                        this.detachWeb();
+                    }
+                } else {
+                    // Recharge web fluid slowly while flying free
+                    this.webFluid = Math.min(100, this.webFluid + 0.35);
+                }
+
+                // Move Player
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Rotation physics (face movement or spin airborne)
+                if (this.attached) {
+                    this.rotation = Math.atan2(this.y - this.anchor.y, this.x - this.anchor.x) - Math.PI / 2;
+                } else {
+                    this.flipAngle += this.vx * 0.05;
+                    this.rotation = this.flipAngle;
+                }
+
+                // Ground collision pit limit
+                if (this.y > canvas.height + 450) {
+                    this.hp = 0; // Fall into pit
+                }
+            }
+
+            draw() {
+                const screenX = this.x - cameraX;
+                const screenY = this.y - cameraY;
+
+                // Draw Web Strand Line if attached
+                if (this.attached) {
+                    const anchorScreenX = this.anchor.x - cameraX;
+                    const anchorScreenY = this.anchor.y - cameraY;
+
+                    ctx.save();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2.5;
+                    ctx.shadowColor = '#38bdf8';
+                    ctx.shadowBlur = 8;
+                    ctx.beginPath();
+                    ctx.moveTo(anchorScreenX, anchorScreenY);
+                    ctx.lineTo(screenX, screenY);
+                    ctx.stroke();
+                    ctx.restore();
+
+                    // Web Anchor Point Glow
+                    ctx.save();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.shadowColor = '#ffffff';
+                    ctx.shadowBlur = 12;
+                    ctx.beginPath();
+                    ctx.arc(anchorScreenX, anchorScreenY, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                // Draw Spider-Man Character Body
+                ctx.save();
+                ctx.translate(screenX, screenY);
+                ctx.rotate(this.rotation);
+
+                // Electric Web Aura Effect
+                if (this.electricTimer > 0) {
+                    ctx.strokeStyle = '#06b6d4';
+                    ctx.lineWidth = 3;
+                    ctx.shadowColor = '#a855f7';
+                    ctx.shadowBlur = 15;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius + 8, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                // Red Suit Main Body
+                ctx.fillStyle = '#dc2626';
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Blue Accents
+                ctx.fillStyle = '#2563eb';
+                ctx.beginPath();
+                ctx.arc(-4, 4, 8, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Iconic Spider-Mask Eyes
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.ellipse(-5, -4, 6, 4, -Math.PI / 6, 0, Math.PI * 2);
+                ctx.ellipse(5, -4, 6, 4, Math.PI / 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Black Eye Outlines
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.ellipse(-5, -4, 6, 4, -Math.PI / 6, 0, Math.PI * 2);
+                ctx.ellipse(5, -4, 6, 4, Math.PI / 6, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            shootAttackWeb() {
+                if (this.webFluid < 8) return;
+                this.webFluid -= 8;
+                AudioEngine.playAttackWeb();
+                const vx = 22;
+                const vy = (Math.random() - 0.5) * 2;
+                webProjectiles.push(new WebProjectile(this.x + 20, this.y, vx, vy, 'ATTACK'));
+            }
+
+            activateElectricWeb() {
+                if (this.webFluid < 20) return;
+                this.webFluid -= 20;
+                this.electricTimer = 180; // 3 秒電擊護盾
+                AudioEngine.playElectricSfx();
+                for (let i = -1; i <= 1; i++) {
+                    webProjectiles.push(new WebProjectile(this.x + 20, this.y, 18, i * 4, 'ELECTRIC'));
+                }
+            }
+        }
+
+        class Building {
+            constructor(x, width, height) {
+                this.x = x;
+                this.width = width;
+                this.height = height;
+                this.y = canvas.height - height;
+                this.windowRows = Math.floor(height / 35);
+                this.windowCols = Math.floor(width / 25);
+                this.windowLights = [];
+                for (let r = 0; r < this.windowRows; r++) {
+                    const row = [];
+                    for (let c = 0; c < this.windowCols; c++) {
+                        row.push(Math.random() > 0.4);
+                    }
+                    this.windowLights.push(row);
+                }
+            }
+
+            draw() {
+                const screenX = this.x - cameraX;
+                const screenY = this.y - cameraY;
+
+                ctx.save();
+                // 摩天大樓主體繪製
+                ctx.fillStyle = '#0f172a';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 2;
+                ctx.fillRect(screenX, screenY, this.width, this.height + 800);
+                ctx.strokeRect(screenX, screenY, this.width, this.height + 800);
+
+                // 天台邊緣
+                ctx.fillStyle = '#334155';
+                ctx.fillRect(screenX - 4, screenY, this.width + 8, 12);
+
+                // 窗戶燈光
+                for (let r = 0; r < this.windowRows; r++) {
+                    for (let c = 0; c < this.windowCols; c++) {
+                        const winX = screenX + 12 + c * 22;
+                        const winY = screenY + 25 + r * 30;
+                        if (this.windowLights[r] && this.windowLights[r][c]) {
+                            ctx.fillStyle = 'rgba(253, 224, 71, 0.7)';
+                            ctx.shadowColor = 'rgba(253, 224, 71, 0.5)';
+                            ctx.shadowBlur = 4;
+                        } else {
+                            ctx.fillStyle = 'rgba(30, 41, 59, 0.8)';
+                            ctx.shadowBlur = 0;
+                        }
+                        ctx.fillRect(winX, winY, 12, 18);
+                    }
+                }
+                ctx.restore();
+            }
+        }
+
+        class Obstacle {
+            constructor(x, y, type = 'BOMB') {
+                this.x = x;
+                this.y = y;
+                this.type = type; // 'BOMB', 'GOBLIN'
+                this.radius = type === 'GOBLIN' ? 24 : 16;
+                this.floatOffset = Math.random() * Math.PI * 2;
+                this.initialY = y;
+            }
+
+            update() {
+                this.floatOffset += 0.05;
+                this.y = this.initialY + Math.sin(this.floatOffset) * 15;
+            }
+
+            draw() {
+                const screenX = this.x - cameraX;
+                const screenY = this.y - cameraY;
+
+                ctx.save();
+                if (this.type === 'BOMB') {
+                    // 南瓜炸彈
+                    ctx.save();
+                    ctx.translate(screenX, screenY);
+                    ctx.fillStyle = '#ea580c';
+                    ctx.shadowColor = '#f97316';
+                    ctx.shadowBlur = 12;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // 發光眼睛與嘴巴
+                    ctx.fillStyle = '#facc15';
+                    ctx.beginPath();
+                    ctx.arc(-4, -3, 3, 0, Math.PI * 2);
+                    ctx.arc(4, -3, 3, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.restore();
+                } else if (this.type === 'GOBLIN') {
+                    // 綠魔與滑翔翼
+                    ctx.save();
+                    ctx.translate(screenX, screenY);
+
+                    // 滑翔翼機翼
+                    ctx.fillStyle = '#64748b';
+                    ctx.beginPath();
+                    ctx.moveTo(-30, 10);
+                    ctx.lineTo(0, -5);
+                    ctx.lineTo(30, 10);
+                    ctx.lineTo(0, 5);
+                    ctx.fill();
+
+                    // 綠魔人偶
+                    ctx.fillStyle = '#15803d';
+                    ctx.beginPath();
+                    ctx.arc(0, -12, 10, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // 紫色兜帽
+                    ctx.fillStyle = '#7e22ce';
+                    ctx.beginPath();
+                    ctx.arc(0, -16, 8, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.restore();
+                }
+                ctx.restore();
+            }
+        }
+
+        class Collectible {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type; // 'SPIDER_TOKEN', 'PIZZA'
+                this.radius = 14;
+                this.bounce = Math.random() * Math.PI * 2;
+            }
+
+            update() {
+                this.bounce += 0.08;
+            }
+
+            draw() {
+                const screenX = this.x - cameraX;
+                const screenY = this.y - cameraY + Math.sin(this.bounce) * 6;
+
+                ctx.save();
+                ctx.translate(screenX, screenY);
+
+                if (this.type === 'SPIDER_TOKEN') {
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 15, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // Spider Emblem inside Token
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (this.type === 'PIZZA') {
+                    // Pizza slice health boost
+                    ctx.fillStyle = '#eab308';
+                    ctx.beginPath();
+                    ctx.moveTo(0, -12);
+                    ctx.lineTo(12, 12);
+                    ctx.lineTo(-12, 12);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.fillStyle = '#dc2626'; // Pepperoni
+                    ctx.beginPath();
+                    ctx.arc(0, 2, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        let particles = [];
+
+        function createWebParticles(x, y) {
+            for (let i = 0; i < 12; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    life: 1.0,
+                    color: '#ffffff'
+                });
+            }
+        }
+
+        function createExplosionParticles(x, y) {
+            for (let i = 0; i < 25; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 12,
+                    vy: (Math.random() - 0.5) * 12,
+                    life: 1.0,
+                    color: Math.random() > 0.5 ? '#f97316' : '#ef4444'
+                });
+            }
+        }
+
+        function updateAndDrawParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.03;
+
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                ctx.save();
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x - cameraX, p.y - cameraY, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        const player = new SpiderMan();
+        let buildings = [];
+        let obstacles = [];
+        let collectibles = [];
+        let webProjectiles = [];
+        let lastBuildingX = 0;
+
+        function generateCity() {
+            while (lastBuildingX < cameraX + canvas.width + 800) {
+                const width = Math.floor(Math.random() * 120) + 140;
+                // Significantly increased skyscraper height (up to ~1000px tall)
+                const height = Math.floor(Math.random() * 550) + 450;
+                const gap = Math.floor(Math.random() * 80) + 40;
+
+                const b = new Building(lastBuildingX, width, height);
+                buildings.push(b);
+
+                // Randomly spawn collectibles on roof or in gap
+                if (Math.random() > 0.35) {
+                    collectibles.push(new Collectible(
+                        lastBuildingX + width / 2,
+                        b.y - 40,
+                        Math.random() > 0.25 ? 'SPIDER_TOKEN' : 'PIZZA'
+                    ));
+                }
+
+                // Randomly spawn obstacles
+                if (Math.random() > 0.5 && lastBuildingX > 800) {
+                    const isGoblin = Math.random() > 0.6;
+                    obstacles.push(new Obstacle(
+                        lastBuildingX + width + gap / 2,
+                        canvas.height - height - (isGoblin ? 180 : 80),
+                        isGoblin ? 'GOBLIN' : 'BOMB'
+                    ));
+                }
+
+                lastBuildingX += width + gap;
+            }
+
+            // Cleanup offscreen objects
+            buildings = buildings.filter(b => b.x + b.width > cameraX - 400);
+            obstacles = obstacles.filter(o => o.x > cameraX - 400);
+            collectibles = collectibles.filter(c => c.x > cameraX - 400);
+        }
+
+        function showCombo(text) {
+            const toast = document.getElementById('combo-toast');
+            const toastText = document.getElementById('combo-text');
+            toastText.textContent = text;
+            toast.classList.remove('opacity-0', '-translate-y-4');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', '-translate-y-4');
+            }, 1200);
+        }
+
+        function checkCollisions() {
+            // Check building collisions (Rooftop landing or side crash)
+            buildings.forEach(b => {
+                if (player.x + player.radius > b.x && player.x - player.radius < b.x + b.width) {
+                    // Landing on rooftop
+                    if (player.y + player.radius >= b.y && player.y - player.radius < b.y + 20 && player.vy > 0) {
+                        player.y = b.y - player.radius;
+                        player.vy = 0;
+                        player.vx *= 0.95; // Friction
+                        player.webFluid = Math.min(100, player.webFluid + 1.0); // Fast recharge on roof
+                    }
+                }
+            });
+
+            // Check Web Projectiles vs Obstacles
+            for (let pi = webProjectiles.length - 1; pi >= 0; pi--) {
+                const proj = webProjectiles[pi];
+                let destroyed = false;
+
+                for (let oi = obstacles.length - 1; oi >= 0; oi--) {
+                    const o = obstacles[oi];
+                    const dx = proj.x - o.x;
+                    const dy = proj.y - o.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < proj.radius + o.radius) {
+                        AudioEngine.playExplosion();
+                        createExplosionParticles(o.x, o.y);
+                        score += o.type === 'GOBLIN' ? 500 : 300;
+                        showCombo(o.type === 'GOBLIN' ? '+500 擊毀綠魔!' : '+300 炸彈銷毀!');
+                        obstacles.splice(oi, 1);
+                        destroyed = true;
+                        break;
+                    }
+                }
+
+                if (destroyed || proj.life <= 0) {
+                    webProjectiles.splice(pi, 1);
+                }
+            }
+
+            // Check Collectibles
+            for (let i = collectibles.length - 1; i >= 0; i--) {
+                const c = collectibles[i];
+                const dx = player.x - c.x;
+                const dy = player.y - c.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < player.radius + c.radius) {
+                    AudioEngine.playCoin();
+                    if (c.type === 'SPIDER_TOKEN') {
+                        score += 250;
+                        showCombo('+250 SPIDER POWER!');
+                    } else if (c.type === 'PIZZA') {
+                        player.hp = Math.min(100, player.hp + 25);
+                        showCombo('PIZZA TIME! +HP');
+                    }
+                    collectibles.splice(i, 1);
+                }
+            }
+
+            // Check Obstacles & Spidey Sense
+            let dangerClose = false;
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const o = obstacles[i];
+                const dx = player.x - o.x;
+                const dy = player.y - o.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                // Spidey-Sense visual alert radius
+                if (dist < 260) {
+                    dangerClose = true;
+                }
+
+                // Direct Collision (Electric Web absorbs hits!)
+                if (dist < player.radius + o.radius) {
+                    if (player.electricTimer > 0) {
+                        AudioEngine.playExplosion();
+                        createExplosionParticles(o.x, o.y);
+                        score += 300;
+                        showCombo('⚡ 電擊蛛絲防禦!');
+                        obstacles.splice(i, 1);
+                    } else {
+                        AudioEngine.playExplosion();
+                        createExplosionParticles(o.x, o.y);
+                        player.hp -= 30;
+                        player.vy = -8;
+                        player.vx *= 0.5;
+                        showCombo('OACCH! BOMB HIT!');
+                        obstacles.splice(i, 1);
+                    }
+                }
+            }
+
+            // Toggle Spidey-Sense UI Warning
+            const overlay = document.getElementById('spidey-sense-overlay');
+            if (dangerClose) {
+                overlay.classList.add('spidey-sense-active');
+            } else {
+                overlay.classList.remove('spidey-sense-active');
+            }
+        }
+
+        function gameLoop() {
+            if (gameState === 'PLAYING') {
+                // Clear Canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Smooth Camera tracking Spider-Man
+                cameraX += (player.x - canvas.width * 0.3 - cameraX) * 0.08;
+                cameraY += (player.y - canvas.height * 0.4 - cameraY) * 0.05;
+
+                // Update Game Elements
+                player.update();
+                generateCity();
+
+                webProjectiles.forEach(p => p.update());
+                obstacles.forEach(o => o.update());
+                collectibles.forEach(c => c.update());
+
+                checkCollisions();
+
+                // Calculate Distance & High Scores
+                distanceMeters = Math.max(distanceMeters, Math.floor(player.x / 20));
+                score += Math.floor(player.vx * 0.1);
+
+                // Render Background & Objects
+                buildings.forEach(b => b.draw());
+                collectibles.forEach(c => c.draw());
+                obstacles.forEach(o => o.draw());
+                webProjectiles.forEach(p => p.draw());
+                updateAndDrawParticles();
+                player.draw();
+
+                // Update UI Bars
+                document.getElementById('hp-bar').style.width = `${Math.max(0, player.hp)}%`;
+                document.getElementById('hp-text').textContent = `${Math.ceil(Math.max(0, player.hp))}%`;
+                document.getElementById('web-bar').style.width = `${Math.max(0, player.webFluid)}%`;
+                document.getElementById('web-text').textContent = `${Math.ceil(Math.max(0, player.webFluid))}%`;
+                document.getElementById('dist-display').innerHTML = `${distanceMeters} <span class="text-sm font-normal text-slate-300">m</span>`;
+                document.getElementById('score-display').textContent = score;
+
+                // Game Over Check
+                if (player.hp <= 0) {
+                    endGame();
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            AudioEngine.init();
+            player.reset();
+            buildings = [];
+            obstacles = [];
+            collectibles = [];
+            webProjectiles = [];
+            cameraX = 0;
+            cameraY = 0;
+            lastBuildingX = 0;
+            score = 0;
+            distanceMeters = 0;
+
+            generateCity();
+
+            gameState = 'PLAYING';
+            document.getElementById('start-modal').classList.add('hidden');
+            document.getElementById('gameover-modal').classList.add('hidden');
+        }
+
+        function endGame() {
+            gameState = 'GAMEOVER';
+            if (distanceMeters > bestDistance) {
+                bestDistance = distanceMeters;
+                localStorage.setItem('spidey_best_dist', bestDistance.toString());
+            }
+            document.getElementById('final-dist').textContent = `${distanceMeters} m`;
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('best-dist').textContent = `${bestDistance} m`;
+            document.getElementById('gameover-modal').classList.remove('hidden');
+        }
+
+        // Event Listeners for Controls
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.left = true;
+            if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.right = true;
+            if (e.code === 'KeyQ') player.shootAttackWeb();
+            if (e.code === 'KeyE') player.activateElectricWeb();
+            if (e.code === 'Space') {
+                if (!player.attached && gameState === 'PLAYING') {
+                    // Shoot web auto-target near top center
+                    player.attachWeb(player.x + 180, player.y - 300);
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.left = false;
+            if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.right = false;
+            if (e.code === 'Space') {
+                player.detachWeb();
+            }
+        });
+
+        // Virtual Joystick Controller Logic
+        const joystickContainer = document.getElementById('joystick-container');
+        const joystickStick = document.getElementById('joystick-stick');
+
+        function handleJoystickMove(clientX, clientY) {
+            const rect = joystickContainer.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            let deltaX = clientX - centerX;
+            let deltaY = clientY - centerY;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            const maxRadius = 38;
+
+            if (distance > maxRadius) {
+                deltaX = (deltaX / distance) * maxRadius;
+                deltaY = (deltaY / distance) * maxRadius;
+            }
+
+            joystickStick.style.transform = `translate(calc(-50% + ${deltaX}px), calc(-50% + ${deltaY}px))`;
+
+            joystick.active = true;
+            joystick.vectorX = deltaX / maxRadius;
+            joystick.vectorY = deltaY / maxRadius;
+        }
+
+        function resetJoystick() {
+            joystick.active = false;
+            joystick.vectorX = 0;
+            joystick.vectorY = 0;
+            joystickStick.style.transform = `translate(-50%, -50%)`;
+        }
+
+        joystickContainer.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            joystickContainer.setPointerCapture(e.pointerId);
+            handleJoystickMove(e.clientX, e.clientY);
+        });
+
+        joystickContainer.addEventListener('pointermove', (e) => {
+            if (joystick.active) {
+                handleJoystickMove(e.clientX, e.clientY);
+            }
+        });
+
+        joystickContainer.addEventListener('pointerup', resetJoystick);
+        joystickContainer.addEventListener('pointercancel', resetJoystick);
+
+        // Action Skill Buttons Listeners
+        document.getElementById('btn-attack-web').addEventListener('click', () => player.shootAttackWeb());
+        document.getElementById('btn-electric-web').addEventListener('click', () => player.activateElectricWeb());
+
+        // Pointer/Touch Events for Canvas Swinging
+        canvas.addEventListener('pointerdown', (e) => {
+            if (gameState !== 'PLAYING') return;
+            pointerDown = true;
+            const realX = e.clientX + cameraX;
+            const realY = e.clientY + cameraY;
+            player.attachWeb(realX, realY);
+        });
+
+        canvas.addEventListener('pointerup', () => {
+            pointerDown = false;
+            player.detachWeb();
+        });
+
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('restart-btn').addEventListener('click', startGame);
+
+        // Mobile Boost button listener
+        document.getElementById('mobile-boost-btn').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (player.attached) {
+                player.vx += 4;
+                player.vy -= 2;
+                AudioEngine.playWhoosh();
+            }
+        });
+
+        // Initialize display
+        window.onload = () => {
+            resizeCanvas();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
