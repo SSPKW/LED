@@ -3,290 +3,253 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>加減法大挑戰 - 動物生態與龍虎榜</title>
-    <!-- 載入 Tailwind CSS、Canvas Confetti 與 Matter.js 物理引擎 -->
+    <title>加減法大挑戰</title>
+    <!-- 載入 Tailwind CSS、彩帶特效與 Matter.js 物理引擎 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: 'Noto Sans TC', sans-serif;
             overscroll-behavior: none;
             user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
         
-        /* 彈出與震動動畫 */
-        .pop-in {
-            animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        .fade-in {
+            animation: fadeIn 0.35s ease-out forwards;
         }
-        @keyframes popIn {
-            from { opacity: 0; transform: scale(0.85); }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.92); }
             to { opacity: 1; transform: scale(1); }
         }
 
-        .animate-shake {
-            animation: shake 0.4s ease-in-out;
-        }
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
-            20%, 60% { transform: translateX(-8px); }
-            40%, 80% { transform: translateX(8px); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
+        }
+        .animate-shake {
+            animation: shake 0.3s ease-in-out 2;
+        }
+
+        /* 獎盃點擊彈跳特效 */
+        @keyframes trophyPop {
+            0% { transform: scale(1); }
+            40% { transform: scale(1.3) rotate(-8deg); }
+            70% { transform: scale(0.95) rotate(6deg); }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+        .trophy-pop {
+            animation: trophyPop 0.28s ease-out;
         }
 
         #game-zone canvas {
             display: block;
             width: 100%;
             height: 100%;
-            border-radius: 0.75rem;
-        }
-
-        /* 自訂捲軸樣式 */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.05);
-            border-radius: 999px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(148, 163, 184, 0.5);
-            border-radius: 999px;
+            border-radius: 0.5rem;
         }
     </style>
 </head>
-<body class="bg-blue-50 h-screen flex flex-col overflow-hidden">
+<body class="bg-blue-50 h-screen flex flex-col font-sans overflow-hidden">
 
-    <!-- 主要內容區：左側數學問答 + 右側動物生態地圖 -->
-    <div class="flex-1 overflow-y-auto flex flex-col md:flex-row w-full max-w-7xl mx-auto p-2 sm:p-3 gap-3 sm:gap-4 min-h-0">
+    <!-- 主要內容區：設定為 flex-1 並且可滾動，防止內容被擠壓覆蓋 -->
+    <div class="flex-1 overflow-y-auto flex flex-col md:flex-row w-full max-w-7xl mx-auto p-2 gap-4 min-h-0">
         
         <!-- 左側：數學問答區 -->
-        <div class="w-full md:w-5/12 bg-white rounded-2xl shadow-xl flex flex-col p-3 sm:p-4 relative z-10 border-4 border-blue-200 shrink-0">
-            <!-- 倒數計時能量條 -->
-            <div class="w-full bg-gray-200 rounded-full h-4 mb-3 flex-shrink-0 relative overflow-hidden shadow-inner">
+        <div class="w-full md:w-5/12 bg-white rounded-2xl shadow-xl flex flex-col p-4 relative z-10 border-4 border-blue-200 shrink-0">
+            <!-- 能量條與控制列 -->
+            <div class="w-full bg-gray-200 rounded-full h-4 mb-4 flex-shrink-0 relative overflow-hidden shadow-inner">
                 <div id="time-bar" class="bg-green-500 h-4 rounded-full transition-all duration-1000 ease-linear w-full"></div>
             </div>
             
-            <!-- 道具技能列：暫停與提示 -->
-            <div class="flex justify-between items-center mb-3 gap-2 flex-shrink-0">
-                <button id="pause-btn" onclick="usePause()" class="flex-1 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-2 rounded-xl shadow-[0_4px_0_rgb(161,98,7)] active:shadow-[0_0px_0_rgb(161,98,7)] active:translate-y-1 transition-all text-xs sm:text-sm flex items-center justify-center gap-1 opacity-50 cursor-not-allowed">
-                    ⏳ 諗緊 <span class="text-xs">(需🐘x1)</span>
+            <div class="flex justify-between items-center mb-4 gap-2 flex-shrink-0">
+                <button id="pause-btn" onclick="usePause()" class="flex-1 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-3 rounded-xl shadow-[0_4px_0_rgb(161,98,7)] active:shadow-[0_0px_0_rgb(161,98,7)] active:translate-y-1 transition-all text-sm sm:text-base flex items-center justify-center gap-1 opacity-50 cursor-not-allowed">
+                    ⏳ 諗緊<br><span class="text-xs">(需🐘x1)</span>
                 </button>
-                <button id="hint-btn" onclick="useHint()" class="flex-1 bg-purple-400 hover:bg-purple-500 text-purple-900 font-bold py-2 px-2 rounded-xl shadow-[0_4px_0_rgb(107,33,168)] active:shadow-[0_0px_0_rgb(107,33,168)] active:translate-y-1 transition-all text-xs sm:text-sm flex items-center justify-center gap-1 opacity-50 cursor-not-allowed">
-                    💡 提示 <span class="text-xs">(需🐘x2)</span>
+                <button id="hint-btn" onclick="useHint()" class="flex-1 bg-purple-400 hover:bg-purple-500 text-purple-900 font-bold py-2 px-3 rounded-xl shadow-[0_4px_0_rgb(107,33,168)] active:shadow-[0_0px_0_rgb(107,33,168)] active:translate-y-1 transition-all text-sm sm:text-base flex items-center justify-center gap-1 opacity-50 cursor-not-allowed">
+                    💡 提示<br><span class="text-xs">(需🐘x2)</span>
                 </button>
             </div>
 
-            <!-- 智能解題提示區 -->
-            <div id="hint-text" class="hidden mb-3 p-2.5 bg-purple-100 text-purple-800 rounded-xl text-xs sm:text-sm font-bold border-2 border-purple-300 flex-shrink-0">
-                <!-- 提示內容動態顯示 -->
+            <div id="hint-text" class="hidden mb-4 p-3 bg-purple-100 text-purple-800 rounded-lg text-sm font-bold border-2 border-purple-300 flex-shrink-0">
+                <!-- 提示內容會在這裡顯示 -->
             </div>
 
             <!-- 題目顯示區 -->
-            <div id="question-container" class="flex-1 flex flex-col items-center justify-center mb-3 min-h-[76px] bg-slate-50 rounded-2xl border-2 border-slate-100 px-2">
-                <div id="question-text" class="text-4xl sm:text-5xl md:text-6xl font-black text-gray-700 tracking-wider text-center flex items-center justify-center flex-wrap gap-2">
-                    <span class="text-xl sm:text-2xl text-slate-400 font-bold">按「開始新遊戲」挑戰！</span>
+            <div id="question-container" class="flex-1 flex flex-col items-center justify-center mb-4 min-h-[80px]">
+                <div id="question-text" class="text-5xl md:text-6xl font-black text-gray-700 tracking-wider text-center flex items-center justify-center flex-wrap gap-2">
+                    <!-- 題目生成在這裡 -->
                 </div>
             </div>
 
             <!-- 數字鍵盤 -->
             <div class="grid grid-cols-3 gap-2 w-full max-w-sm mx-auto flex-shrink-0">
-                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-2xl sm:text-3xl font-bold py-2.5 sm:py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(1)">1</button>
-                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-2xl sm:text-3xl font-bold py-2.5 sm:py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(2)">2</button>
-                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-2xl sm:text-3xl font-bold py-2.5 sm:py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(3)">3</button>
-                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-2xl sm:text-3xl font-bold py-2.5 sm:py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(4)">4</button>
-                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-2xl sm:text-3xl font-bold py-2.5 sm:py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(5)">5</button>
-                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-2xl sm:text-3xl font-bold py-2.5 sm:py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(6)">6</button>
-                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-2xl sm:text-3xl font-bold py-2.5 sm:py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(7)">7</button>
-                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-2xl sm:text-3xl font-bold py-2.5 sm:py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(8)">8</button>
-                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-2xl sm:text-3xl font-bold py-2.5 sm:py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(9)">9</button>
+                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-3xl font-bold py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(1)">1</button>
+                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-3xl font-bold py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(2)">2</button>
+                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-3xl font-bold py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(3)">3</button>
+                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-3xl font-bold py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(4)">4</button>
+                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-3xl font-bold py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(5)">5</button>
+                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-3xl font-bold py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(6)">6</button>
+                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-3xl font-bold py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(7)">7</button>
+                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-3xl font-bold py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(8)">8</button>
+                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-3xl font-bold py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(9)">9</button>
                 
-                <button class="bg-red-100 hover:bg-red-200 text-red-600 text-xl sm:text-2xl font-bold py-2.5 sm:py-3 rounded-xl shadow-[0_4px_0_rgb(252,165,165)] active:shadow-[0_0px_0_rgb(252,165,165)] active:translate-y-1 transition-all" onclick="clearInput()">清除</button>
-                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-2xl sm:text-3xl font-bold py-2.5 sm:py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(0)">0</button>
-                <button class="bg-green-500 hover:bg-green-600 text-white text-xl sm:text-2xl font-bold py-2.5 sm:py-3 rounded-xl shadow-[0_4px_0_rgb(21,128,61)] active:shadow-[0_0px_0_rgb(21,128,61)] active:translate-y-1 transition-all" onclick="checkAnswer()">確定</button>
+                <!-- 清除在左，0在中，確定在右 -->
+                <button class="bg-red-100 hover:bg-red-200 text-red-600 text-2xl font-bold py-3 rounded-xl shadow-[0_4px_0_rgb(252,165,165)] active:shadow-[0_0px_0_rgb(252,165,165)] active:translate-y-1 transition-all" onclick="clearInput()">清除</button>
+                <button class="numpad-btn bg-blue-100 hover:bg-blue-200 text-blue-800 text-3xl font-bold py-3 rounded-xl shadow-[0_4px_0_rgb(147,197,253)] active:shadow-[0_0px_0_rgb(147,197,253)] active:translate-y-1 transition-all" onclick="inputNumber(0)">0</button>
+                <button class="bg-green-500 hover:bg-green-600 text-white text-2xl font-bold py-3 rounded-xl shadow-[0_4px_0_rgb(21,128,61)] active:shadow-[0_0px_0_rgb(21,128,61)] active:translate-y-1 transition-all" onclick="checkAnswer()">確定</button>
             </div>
         </div>
 
         <!-- 右側：動物生態地圖區 (Matter.js RTS 視角) -->
-        <div id="game-zone" class="w-full md:w-7/12 min-h-[260px] md:min-h-0 rounded-2xl shadow-xl relative overflow-hidden border-4 border-green-400 bg-green-200">
+        <div id="game-zone" class="w-full md:w-7/12 min-h-[300px] md:min-h-0 rounded-2xl shadow-xl relative overflow-hidden border-4 border-green-400 bg-green-200">
             <div id="canvas-container" class="w-full h-full"></div>
             
-            <!-- 右上角生態圖例提示 -->
-            <div class="absolute top-2 right-2 bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-slate-700 shadow pointer-events-none">
-                連對進化：🐭→🐱→🐶→🐆→🐅→🦁→🐘 (20題🦄)
-            </div>
-
-            <!-- 遊戲開始覆蓋層 -->
-            <div id="game-overlay" class="absolute inset-0 bg-white/85 flex flex-col items-center justify-center z-30 backdrop-blur-sm p-4 text-center">
-                <div class="text-5xl mb-2">🦁🐘🦄</div>
-                <h2 class="text-2xl sm:text-3xl font-black text-slate-800 mb-2">準備好建造動物樂園了嗎？</h2>
-                <p class="text-sm sm:text-base text-slate-600 font-bold mb-6 max-w-md">
-                    每局擁有 <span class="text-red-500">❤️❤️❤️❤️❤️ 5次機會</span>，答對越多、連對越高，就能登上 Top 10 龍虎榜！
-                </p>
-                <div class="flex flex-col sm:flex-row gap-3">
-                    <button onclick="startGame()" class="bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xl sm:text-2xl font-black py-3.5 px-8 rounded-full shadow-xl hover:scale-105 transition-transform border-4 border-white">
-                        ▶️ 開始新遊戲
-                    </button>
-                    <button onclick="openLeaderboard()" class="bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xl sm:text-2xl font-black py-3.5 px-8 rounded-full shadow-xl hover:scale-105 transition-transform border-4 border-white">
-                        🏆 龍虎榜
-                    </button>
-                </div>
+            <!-- 開始遊戲覆蓋層 -->
+            <div id="game-overlay" class="absolute inset-0 bg-white/80 flex flex-col items-center justify-center gap-4 z-30 backdrop-blur-sm p-4">
+                <button onclick="startGame()" class="animate-bounce bg-gradient-to-r from-blue-500 to-purple-600 text-white text-3xl font-black py-4 px-10 rounded-full shadow-2xl hover:scale-105 transition-transform border-4 border-white">
+                    ▶️ 開始遊戲
+                </button>
+                <button onclick="openLeaderboard()" class="bg-amber-400 hover:bg-amber-500 text-amber-950 text-lg font-black py-2.5 px-7 rounded-full shadow-lg hover:scale-105 transition-transform border-2 border-white flex items-center gap-2">
+                    🏆 查看龍虎榜
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- 底部：狀態列與功能按鈕 -->
-    <div class="w-full bg-slate-800 text-white py-2.5 px-3 sm:px-6 shadow-lg z-40 rounded-t-3xl mt-1 flex flex-wrap justify-between items-center gap-2 shrink-0">
-        <div class="flex items-center gap-2">
-            <h1 class="text-base sm:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500">🌟 加減法大挑戰</h1>
-            <span id="lives-display" class="text-sm sm:text-lg tracking-normal sm:tracking-wider bg-slate-700/80 px-2.5 py-0.5 rounded-full" title="剩餘機會">❤️❤️❤️❤️❤️</span>
-        </div>
-
-        <!-- 即時成績數據 -->
-        <div class="flex items-center gap-3 sm:gap-5 text-xs sm:text-base font-bold bg-slate-700 py-1 px-3 sm:px-4 rounded-full">
-            <div>總對: <span id="correct-score" class="text-green-400 text-base sm:text-xl">0</span></div>
-            <div>連對: <span id="streak-score" class="text-yellow-400 text-base sm:text-xl">0</span> <span class="text-xs text-slate-300">(最高:<span id="max-streak-score">0</span>)</span></div>
-            <div title="可用於暫停或提示">🐘: <span id="elephant-score" class="text-pink-400 text-base sm:text-xl">0</span></div>
-        </div>
-
-        <!-- 龍虎榜與結束按鈕 -->
-        <div class="flex items-center gap-2">
-            <button onclick="openLeaderboard()" class="bg-amber-500 hover:bg-amber-600 text-slate-900 font-black py-1.5 px-3 rounded-xl text-xs sm:text-sm shadow transition-all flex items-center gap-1">
+    <!-- 底部：標題與狀態列 -->
+    <div class="w-full bg-slate-800 text-white py-3 px-4 sm:px-6 shadow-lg z-40 rounded-t-3xl mt-2 flex flex-col sm:flex-row justify-between items-center gap-2 shrink-0">
+        <div class="flex items-center gap-3">
+            <h1 class="text-lg sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500">🌟 加減法大挑戰</h1>
+            <button onclick="openLeaderboard()" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs sm:text-sm font-bold py-1 px-3 rounded-full transition-all flex items-center gap-1">
                 🏆 龍虎榜
             </button>
-            <button id="end-game-btn" onclick="triggerManualEnd()" class="hidden bg-rose-500 hover:bg-rose-600 text-white font-bold py-1.5 px-3 rounded-xl text-xs sm:text-sm shadow transition-all">
-                🏁 結束並記錄
+            <button id="finish-btn" onclick="openSubmitModal()" class="hidden bg-emerald-500 hover:bg-emerald-600 text-white text-xs sm:text-sm font-bold py-1 px-3 rounded-full shadow transition-all">
+                🏁 結束並登榜
             </button>
         </div>
+        <div class="flex gap-4 sm:gap-6 text-sm sm:text-lg font-bold bg-slate-700 py-1 px-4 rounded-full">
+            <div>答對: <span id="correct-score" class="text-green-400 text-xl sm:text-2xl">0</span></div>
+            <div>連對: <span id="streak-score" class="text-yellow-400 text-xl sm:text-2xl">0</span></div>
+            <div title="可用於暫停或提示">大象🐘: <span id="elephant-score" class="text-pink-400 text-xl sm:text-2xl">0</span></div>
+        </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- 彈窗 1：遊戲完結與輸入使用者名稱 Modal      -->
-    <!-- ========================================== -->
-    <div id="gameover-modal" class="hidden fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-4 border-yellow-400 pop-in text-center relative">
-            <div id="gameover-badge" class="text-6xl mb-2">🎉</div>
-            <h2 id="gameover-title" class="text-2xl sm:text-3xl font-black text-slate-800 mb-1">挑戰完結！</h2>
-            <p id="top10-congrats" class="hidden text-sm font-black text-amber-600 bg-amber-100 py-1 px-3 rounded-full inline-block mb-3">
-                ✨ 太厲害了！你的成績打入龍虎榜頭 10 名！
-            </p>
-
-            <!-- 本局成績卡片 -->
-            <div class="grid grid-cols-2 gap-3 my-4">
-                <div class="bg-green-50 border-2 border-green-200 rounded-2xl p-3">
-                    <div class="text-xs sm:text-sm font-bold text-green-700">總答對題數</div>
-                    <div id="final-correct" class="text-3xl sm:text-4xl font-black text-green-600 mt-1">0</div>
+    <!-- 結算並輸入名字登榜視窗 -->
+    <div id="submit-modal" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl border-4 border-purple-400 shadow-2xl w-full max-w-md p-6 fade-in text-center">
+            <div class="text-5xl mb-2">🎉</div>
+            <h2 class="text-2xl font-black text-slate-800 mb-1">挑戰完成！</h2>
+            <p class="text-slate-500 text-sm mb-4">輸入你的名字，將戰績記錄到龍虎榜吧！</p>
+            
+            <div class="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl mb-4 border border-slate-100">
+                <div>
+                    <div class="text-xs text-slate-400 font-bold">本局總答對</div>
+                    <div id="summary-correct" class="text-3xl font-black text-blue-600">0</div>
                 </div>
-                <div class="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-3">
-                    <div class="text-xs sm:text-sm font-bold text-yellow-700">最高連對紀錄</div>
-                    <div id="final-max-streak" class="text-3xl sm:text-4xl font-black text-yellow-600 mt-1">0</div>
+                <div>
+                    <div class="text-xs text-slate-400 font-bold">本局最高連對</div>
+                    <div id="summary-max-streak" class="text-3xl font-black text-amber-500">0</div>
                 </div>
             </div>
 
-            <!-- 輸入玩家名稱表單 -->
-            <div class="text-left mb-4">
-                <label for="player-name-input" class="block text-sm font-black text-slate-700 mb-1.5">
-                    ✍️ 輸入玩家名稱登上龍虎榜：
-                </label>
-                <input 
-                    type="text" 
-                    id="player-name-input" 
-                    maxlength="12" 
-                    placeholder="例如：陳小明 / 數學小超人" 
-                    class="w-full px-4 py-3 text-lg font-bold text-slate-800 bg-slate-50 border-2 border-blue-300 rounded-xl focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
-                    onkeydown="handleNameInputKey(event)"
-                >
-                <p id="name-error-msg" class="hidden text-xs font-bold text-rose-500 mt-1">⚠️ 請先輸入玩家名稱再儲存喔！</p>
+            <input id="player-name-input" type="text" maxlength="12" placeholder="請輸入小數學家名字..." class="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-purple-500 focus:outline-none text-center text-lg font-bold text-slate-700 mb-4">
 
-                <!-- 最近使用過的玩家名稱快速選單（方便班房共用平板點選） -->
-                <div id="recent-names-container" class="hidden mt-2">
-                    <span class="text-xs font-bold text-slate-400 block mb-1">快速選擇曾用名稱：</span>
-                    <div id="recent-names-list" class="flex flex-wrap gap-1.5"></div>
-                </div>
-            </div>
-
-            <!-- 操作按鈕 -->
-            <div class="flex flex-col gap-2">
-                <button onclick="savePlayerRecord()" class="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-lg font-black py-3.5 rounded-xl shadow-lg active:translate-y-0.5 transition-all">
-                    💾 儲存成績並查看龍虎榜
-                </button>
-                <button onclick="skipAndRestart()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-bold py-2.5 rounded-xl transition-all">
-                    跳過記錄，直接開始新遊戲
-                </button>
+            <div class="flex gap-3">
+                <button onclick="closeSubmitModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 rounded-xl transition-all">繼續挑戰</button>
+                <button onclick="saveScoreToLeaderboard()" class="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold py-3 rounded-xl shadow-lg hover:opacity-95 transition-all">🏆 登上龍虎榜</button>
             </div>
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- 彈窗 2：Top 10 龍虎榜 Modal                -->
-    <!-- ========================================== -->
-    <div id="leaderboard-modal" class="hidden fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
-        <div class="bg-white rounded-3xl max-w-xl w-full p-5 sm:p-6 shadow-2xl border-4 border-amber-400 pop-in flex flex-col max-h-[90vh]">
-            <!-- 標題列 -->
-            <div class="flex justify-between items-center mb-3 shrink-0">
-                <div class="flex items-center gap-2">
-                    <span class="text-3xl">🏆</span>
+    <!-- 加減法龍虎榜 (Top 10) 視窗 -->
+    <div id="leaderboard-modal" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-white rounded-3xl border-4 border-amber-400 shadow-2xl w-full max-w-2xl p-5 sm:p-6 fade-in relative flex flex-col max-h-[90vh]">
+            
+            <!-- 標題列：點擊獎盃圖案 10 次可觸發隱藏清除功能 -->
+            <div class="flex items-start justify-between mb-4">
+                <div class="flex items-center gap-3 relative">
+                    <button id="secret-trophy-btn" onclick="handleTrophySecretClick()" type="button" aria-label="獎盃圖案" class="text-4xl sm:text-5xl leading-none cursor-pointer select-none touch-manipulation focus:outline-none transition-transform">
+                        🏆
+                    </button>
                     <div>
-                        <h2 class="text-xl sm:text-2xl font-black text-slate-800">加減法龍虎榜 (Top 10)</h2>
-                        <p class="text-xs font-bold text-slate-500">記錄最強小數學家的連對與總對戰績</p>
+                        <h2 class="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">加減法龍虎榜 (Top 10)</h2>
+                        <p class="text-xs sm:text-sm text-slate-400 font-medium">記錄最強小數學家的連對與總對戰績</p>
                     </div>
+                    <!-- 連續點擊進度小提示（點滿 5 次後低調顯示） -->
+                    <span id="trophy-tap-hint" class="hidden absolute -bottom-5 left-0 bg-amber-100 text-amber-800 text-[11px] font-bold px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
+                        再點 5 次...
+                    </span>
                 </div>
-                <button onclick="closeLeaderboard()" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-black flex items-center justify-center text-lg">
+                <button onclick="closeLeaderboard()" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-lg transition-colors">
                     ✕
                 </button>
             </div>
 
-            <!-- 排序切換分頁：總答對優先 vs 最高連對優先 -->
-            <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-xl mb-3 shrink-0">
-                <button id="sort-total-btn" onclick="switchLeaderboardSort('total')" class="py-2 px-3 rounded-lg text-xs sm:text-sm font-black bg-white text-blue-600 shadow transition-all">
-                    📊 總答對優先 (總對 ➔ 連對)
+            <!-- 排序切換分頁 -->
+            <div class="bg-slate-100 p-1.5 rounded-2xl grid grid-cols-2 gap-1.5 mb-4 shrink-0">
+                <button id="sort-total-btn" onclick="setLeaderboardSort('total')" class="py-2 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all bg-white text-blue-600 shadow-sm flex items-center justify-center gap-1.5">
+                    <span>📊</span> 總答對優先 (總對 → 連對)
                 </button>
-                <button id="sort-streak-btn" onclick="switchLeaderboardSort('streak')" class="py-2 px-3 rounded-lg text-xs sm:text-sm font-black text-slate-500 hover:text-slate-700 transition-all">
-                    🔥 最高連對優先 (連對 ➔ 總對)
+                <button id="sort-streak-btn" onclick="setLeaderboardSort('streak')" class="py-2 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-500 hover:text-slate-700 flex items-center justify-center gap-1.5">
+                    <span>🔥</span> 最高連對優先 (連對 → 總對)
                 </button>
             </div>
 
             <!-- 排行榜列表區 -->
-            <div class="flex-1 overflow-y-auto min-h-[220px] pr-1">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="text-xs font-black text-slate-400 border-b-2 border-slate-100">
-                            <th class="py-2 px-2 w-14 text-center">名次</th>
-                            <th class="py-2 px-2">玩家名稱</th>
-                            <th class="py-2 px-2 text-center">總答對</th>
-                            <th class="py-2 px-2 text-center">最高連對</th>
-                            <th class="py-2 px-2 text-right hidden sm:table-cell">日期</th>
-                        </tr>
-                    </thead>
-                    <tbody id="leaderboard-tbody" class="divide-y divide-slate-100 text-sm sm:text-base font-bold">
-                        <!-- 由 JS 動態渲染 Top 10 紀錄 -->
-                    </tbody>
-                </table>
+            <div class="flex-1 overflow-y-auto min-h-[240px] flex flex-col">
+                <!-- 表頭 -->
+                <div class="grid grid-cols-12 text-xs sm:text-sm font-bold text-slate-400 pb-2.5 px-2 border-b border-slate-100 shrink-0">
+                    <div class="col-span-2 text-center">名次</div>
+                    <div class="col-span-4">玩家名稱</div>
+                    <div class="col-span-2 text-center">總答對</div>
+                    <div class="col-span-2 text-center">最高連對</div>
+                    <div class="col-span-2 text-right">日期</div>
+                </div>
+
+                <!-- 內容區（有資料時顯示列表，無資料時顯示幼苗空狀態） -->
+                <div id="leaderboard-list" class="flex-1 flex flex-col">
+                    <!-- 動態生成 -->
+                </div>
             </div>
 
-            <!-- 底部操作按鈕 -->
-            <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap justify-between items-center gap-2 shrink-0">
-                <button id="clear-board-btn" onclick="handleClearLeaderboard()" class="text-xs font-bold text-rose-500 hover:text-rose-700 py-2 px-3 rounded-lg hover:bg-rose-50 transition-all">
-                    🗑️ 清除排行榜
+            <!-- 系統通知氣泡（例如已清除排行榜） -->
+            <div id="leaderboard-toast" class="hidden mt-3 py-2 px-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs sm:text-sm font-bold text-center">
+                ✅ 排行榜紀錄已成功清除！
+            </div>
+
+            <!-- 底部按鈕列（已隱藏「清除排行榜」按鈕，僅保留關閉與開始新遊戲） -->
+            <div class="border-t border-slate-100 pt-4 mt-4 flex items-center justify-end gap-3 shrink-0">
+                <button onclick="closeLeaderboard()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-6 rounded-xl text-sm sm:text-base transition-colors">
+                    關閉
                 </button>
-                <div class="flex gap-2">
-                    <button onclick="closeLeaderboard()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 px-5 rounded-xl text-sm transition-all">
-                        關閉
+                <button onclick="startNewGameFromLeaderboard()" class="bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-95 text-white font-bold py-2.5 px-6 rounded-xl text-sm sm:text-base shadow-lg flex items-center gap-1.5 transition-all">
+                    <span>▶️</span> 開始新遊戲
+                </button>
+            </div>
+
+            <!-- 隱藏功能確認覆蓋層（連按獎盃 10 次後觸發，取代瀏覽器原生 confirm） -->
+            <div id="clear-confirm-overlay" class="hidden absolute inset-0 bg-white/95 backdrop-blur-sm rounded-3xl z-20 flex flex-col items-center justify-center p-6 text-center fade-in">
+                <div class="text-5xl mb-3">🏆</div>
+                <h3 class="text-xl font-black text-slate-800 mb-2">已解鎖隱藏管理功能</h3>
+                <p class="text-slate-500 text-sm mb-6">確定要清除所有「加減法龍虎榜」紀錄嗎？此動作無法復原。</p>
+                <div class="flex gap-3 w-full max-w-xs">
+                    <button onclick="cancelClearLeaderboard()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition-colors">
+                        取消
                     </button>
-                    <button onclick="closeLeaderboard(); startGame();" class="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-black py-2.5 px-5 rounded-xl text-sm shadow transition-all">
-                        ▶️ 開始新遊戲
+                    <button onclick="confirmClearLeaderboard()" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 rounded-xl shadow-md transition-colors">
+                        確定清除
                     </button>
                 </div>
             </div>
+
         </div>
     </div>
 
     <script>
-        // ==========================================
-        // 1. 音效系統 (Web Audio API 合成音效)
-        // ==========================================
+        // ================= 音效系統 =================
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        
         function playCoinSound() {
             if (audioCtx.state === 'suspended') audioCtx.resume();
             const oscillator = audioCtx.createOscillator();
@@ -294,12 +257,12 @@
             oscillator.type = 'sine';
             oscillator.frequency.setValueAtTime(987.77, audioCtx.currentTime); 
             oscillator.frequency.setValueAtTime(1318.51, audioCtx.currentTime + 0.1); 
-            gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.45);
+            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
             oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
             oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.45);
+            oscillator.stop(audioCtx.currentTime + 0.5);
         }
 
         function playErrorSound() {
@@ -309,7 +272,7 @@
             osc.type = 'sawtooth';
             osc.frequency.setValueAtTime(150, audioCtx.currentTime);
             osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.3);
-            gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
             osc.connect(gain);
             gain.connect(audioCtx.destination);
@@ -317,57 +280,42 @@
             osc.stop(audioCtx.currentTime + 0.3);
         }
 
-        function playGameOverFanfare() {
+        function playTapTickSound(step) {
             if (audioCtx.state === 'suspended') audioCtx.resume();
-            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-            notes.forEach((freq, idx) => {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(freq, audioCtx.currentTime + idx * 0.12);
-                gain.gain.setValueAtTime(0.3, audioCtx.currentTime + idx * 0.12);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + idx * 0.12 + 0.4);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(audioCtx.currentTime + idx * 0.12);
-                osc.stop(audioCtx.currentTime + idx * 0.12 + 0.4);
-            });
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            // 隨著連按次數提高音調
+            osc.frequency.setValueAtTime(440 + step * 55, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.08);
         }
 
-        // ==========================================
-        // 2. 遊戲核心狀態變數
-        // ==========================================
+        // ================= 遊戲狀態變數 =================
         let currentQuestion = {};
         let currentInput = "";
-        let timer = null;
+        let timer;
         let timeLeft = 15;
         let maxTime = 15;
         let isPaused = false;
-        let isPlaying = false;
-        let isProcessingAnswer = false;
-
-        // 成績與生命值統計
-        const MAX_LIVES = 5;
-        let lives = MAX_LIVES;
         let qCount = 0;
         let totalCorrect = 0;
         let currentStreak = 0;
         let maxStreak = 0;
         let elephantCount = 0;
+        let isPlaying = false;
 
-        // 龍虎榜相關狀態
-        const STORAGE_KEY = 'math_challenge_top10_records_v1';
-        let currentSortMode = 'total'; // 'total' (總答對優先) 或 'streak' (最高連對優先)
-        let lastSavedRecordId = null;
-        let clearConfirmTimeout = null;
-        let clearConfirmPending = false;
-        let manualEndConfirmPending = false;
-        let manualEndTimeout = null;
-        let pausedByModal = false;
+        // ================= 龍虎榜與隱藏清除機制變數 =================
+        const LEADERBOARD_STORAGE_KEY = 'math_challenge_leaderboard_v1';
+        let leaderboardSortMode = 'total'; // 'total' | 'streak'
+        let trophyClickCount = 0;
+        let trophyResetTimeout = null;
 
-        // ==========================================
-        // 3. Matter.js 動物生態物理引擎
-        // ==========================================
+        // ================= Matter.js 物理生態引擎 =================
         const Engine = Matter.Engine,
               Render = Matter.Render,
               Runner = Matter.Runner,
@@ -380,7 +328,7 @@
         let engine, render, runner, world;
         let animalBodies = [];
         let terrainBodies = [];
-        let animalAIInterval = null;
+        let animalAIInterval;
 
         const CAT_WALL = 0x0001;
         const CAT_FOREST = 0x0002;
@@ -391,12 +339,12 @@
 
         function initPhysics() {
             const container = document.getElementById('canvas-container');
-            const width = container.clientWidth || 600;
-            const height = container.clientHeight || 400;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
 
             engine = Engine.create();
             world = engine.world;
-            engine.gravity.y = 0;
+            engine.gravity.y = 0; // RTS 上帝視角，無重力
             engine.gravity.x = 0;
 
             render = Render.create({
@@ -435,7 +383,6 @@
             Events.on(render, 'afterRender', function() {
                 const ctx = render.context;
                 
-                // 繪製森林與湖泊生態地形
                 terrainBodies.forEach(b => {
                     let r = b.baseRadius;
                     if (b.isForest) {
@@ -454,7 +401,6 @@
                     }
                 });
 
-                // 繪製動物角色與獨角獸彩虹尾跡
                 animalBodies.forEach(body => {
                     if (body.isUnicorn) {
                         if (!body.trail) body.trail = [];
@@ -465,8 +411,8 @@
                             ctx.moveTo(body.trail[i].x, body.trail[i].y);
                             ctx.lineTo(body.trail[i+1].x, body.trail[i+1].y);
                         }
-                        ctx.lineWidth = 14;
-                        ctx.strokeStyle = `hsla(${Date.now() % 360}, 100%, 60%, 0.5)`;
+                        ctx.lineWidth = 15;
+                        ctx.strokeStyle = `hsla(${(Date.now() + (body.hueOffset || 0)) % 360}, 100%, 60%, 0.5)`;
                         ctx.lineCap = 'round';
                         ctx.stroke();
                     }
@@ -475,8 +421,8 @@
                     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                     
                     let alpha = 1;
-                    if (Date.now() - body.creationTime < 800) {
-                        alpha = (Date.now() - body.creationTime) / 800;
+                    if (Date.now() - body.creationTime < 1000) {
+                        alpha = (Date.now() - body.creationTime) / 1000;
                     }
                     ctx.globalAlpha = alpha;
                     
@@ -502,33 +448,30 @@
         }
 
         function generateTerrain(w, h) {
-            terrainBodies.forEach(b => Matter.World.remove(world, b));
-            terrainBodies = [];
-
-            for(let i = 0; i < 2; i++) {
-                let r = Math.random() * 25 + 38;
+            for(let i=0; i<2; i++) {
+                let r = Math.random() * 30 + 40;
                 let sides = Math.floor(Math.random() * 4) + 5;
                 let body = Bodies.polygon(Math.random()*(w-r*4)+r*2, Math.random()*(h-r*4)+r*2, sides, r, {
                     isStatic: true, isForest: true,
                     chamfer: { radius: r * 0.35 },
-                    render: { fillStyle: 'rgba(34, 139, 34, 0.35)', strokeStyle: 'transparent' },
+                    render: { fillStyle: 'rgba(34, 139, 34, 0.4)', strokeStyle: 'transparent' },
                     collisionFilter: { category: CAT_FOREST, mask: CAT_ELEPHANT }
                 });
-                Matter.Body.scale(body, 1 + Math.random() * 0.6, 1 + Math.random() * 0.6);
+                Matter.Body.scale(body, 1 + Math.random() * 0.8, 1 + Math.random() * 0.8);
                 body.baseRadius = r;
                 terrainBodies.push(body);
                 Composite.add(world, body);
             }
-            for(let i = 0; i < 2; i++) {
-                let r = Math.random() * 25 + 38;
+            for(let i=0; i<2; i++) {
+                let r = Math.random() * 30 + 40;
                 let sides = Math.floor(Math.random() * 4) + 5;
                 let body = Bodies.polygon(Math.random()*(w-r*4)+r*2, Math.random()*(h-r*4)+r*2, sides, r, {
                     isStatic: true, isWater: true,
                     chamfer: { radius: r * 0.35 },
-                    render: { fillStyle: 'rgba(64, 164, 255, 0.35)', strokeStyle: 'transparent' },
+                    render: { fillStyle: 'rgba(64, 164, 255, 0.4)', strokeStyle: 'transparent' },
                     collisionFilter: { category: CAT_WATER, mask: CAT_FELINE }
                 });
-                Matter.Body.scale(body, 1 + Math.random() * 0.6, 1 + Math.random() * 0.6);
+                Matter.Body.scale(body, 1 + Math.random() * 0.8, 1 + Math.random() * 0.8);
                 body.baseRadius = r;
                 terrainBodies.push(body);
                 Composite.add(world, body);
@@ -545,31 +488,32 @@
             let isUnicorn = false;
             let isElephant = false;
 
-            if (totalCorrect === 20) {
-                emoji = '🦄'; radius = 35; isUnicorn = true;
+            // 每答對 20 題（20、40、60...）便會生成一隻獨角獸，總數不限
+            if (totalCorrect > 0 && totalCorrect % 20 === 0) {
+                emoji = '🦄'; radius = 50 * 0.7; isUnicorn = true;
                 category = CAT_OTHER;
                 mask = CAT_WALL | CAT_ELEPHANT | CAT_FELINE | CAT_OTHER; 
             } else if (currentStreak >= 7) {
-                emoji = '🐘'; radius = 31.5; isElephant = true;
+                emoji = '🐘'; radius = 45 * 0.7; isElephant = true;
                 category = CAT_ELEPHANT;
                 mask = CAT_WALL | CAT_FOREST | CAT_ELEPHANT | CAT_FELINE | CAT_OTHER;
             } else if (currentStreak === 6) {
-                emoji = '🦁'; radius = 24.5; category = CAT_FELINE; mask = CAT_WALL | CAT_WATER | CAT_ELEPHANT | CAT_FELINE | CAT_OTHER;
+                emoji = '🦁'; radius = 35 * 0.7; category = CAT_FELINE; mask = CAT_WALL | CAT_WATER | CAT_ELEPHANT | CAT_FELINE | CAT_OTHER;
             } else if (currentStreak === 5) {
-                emoji = '🐅'; radius = 23; category = CAT_FELINE; mask = CAT_WALL | CAT_WATER | CAT_ELEPHANT | CAT_FELINE | CAT_OTHER;
+                emoji = '🐅'; radius = 33 * 0.7; category = CAT_FELINE; mask = CAT_WALL | CAT_WATER | CAT_ELEPHANT | CAT_FELINE | CAT_OTHER;
             } else if (currentStreak === 4) {
-                emoji = '🐆'; radius = 21; category = CAT_FELINE; mask = CAT_WALL | CAT_WATER | CAT_ELEPHANT | CAT_FELINE | CAT_OTHER;
+                emoji = '🐆'; radius = 30 * 0.7; category = CAT_FELINE; mask = CAT_WALL | CAT_WATER | CAT_ELEPHANT | CAT_FELINE | CAT_OTHER;
             } else if (currentStreak === 3) {
-                emoji = '🐶'; radius = 19.5; category = CAT_OTHER; mask = CAT_WALL | CAT_ELEPHANT | CAT_FELINE | CAT_OTHER;
+                emoji = '🐶'; radius = 28 * 0.7; category = CAT_OTHER; mask = CAT_WALL | CAT_ELEPHANT | CAT_FELINE | CAT_OTHER;
             } else if (currentStreak === 2) {
-                emoji = '🐱'; radius = 17.5; category = CAT_FELINE; mask = CAT_WALL | CAT_WATER | CAT_ELEPHANT | CAT_FELINE | CAT_OTHER;
+                emoji = '🐱'; radius = 25 * 0.7; category = CAT_FELINE; mask = CAT_WALL | CAT_WATER | CAT_ELEPHANT | CAT_FELINE | CAT_OTHER;
             } else {
-                emoji = '🐭'; radius = 14; category = CAT_OTHER; mask = CAT_WALL | CAT_ELEPHANT | CAT_FELINE | CAT_OTHER;
+                emoji = '🐭'; radius = 20 * 0.7; category = CAT_OTHER; mask = CAT_WALL | CAT_ELEPHANT | CAT_FELINE | CAT_OTHER;
             }
 
             if (isElephant) {
                 elephantCount++;
-                updateScores();
+                updateButtonsUI();
             }
 
             const body = Bodies.circle(Math.random()*(w-100)+50, Math.random()*(h-100)+50, radius, {
@@ -585,6 +529,9 @@
             body.isUnicorn = isUnicorn;
             body.isElephant = isElephant;
             body.creationTime = Date.now();
+            if (isUnicorn) {
+                body.hueOffset = Math.floor(Math.random() * 360);
+            }
             
             animalBodies.push(body);
             Composite.add(world, body);
@@ -626,31 +573,24 @@
                     if (blockToRemove.isElephant) elephantCount--;
                     Matter.World.remove(world, blockToRemove);
                     animalBodies.splice(i, 1);
-                    updateScores();
+                    updateButtonsUI();
                     return;
                 }
             }
         }
 
-        function resetAllAnimals() {
+        function clearAllAnimals() {
             if (!world) return;
             animalBodies.forEach(b => Matter.World.remove(world, b));
             animalBodies = [];
             elephantCount = 0;
+            updateButtonsUI();
         }
 
-        // ==========================================
-        // 4. 遊戲流程控制 (開始、答題、扣血、完結)
-        // ==========================================
+        // ================= 遊戲流程控制 =================
         function startGame() {
             document.getElementById('game-overlay').classList.add('hidden');
-            document.getElementById('gameover-modal').classList.add('hidden');
-            document.getElementById('end-game-btn').classList.remove('hidden');
-            resetManualEndButton();
-
             isPlaying = true;
-            isProcessingAnswer = false;
-            lives = MAX_LIVES;
             qCount = 0;
             totalCorrect = 0;
             currentStreak = 0;
@@ -660,11 +600,8 @@
             if (!engine) {
                 initPhysics();
             } else {
-                resetAllAnimals();
-                const container = document.getElementById('canvas-container');
-                generateTerrain(container.clientWidth, container.clientHeight);
+                clearAllAnimals();
             }
-
             updateScores();
             nextQuestion();
         }
@@ -672,16 +609,15 @@
         function updateScores() {
             document.getElementById('correct-score').innerText = totalCorrect;
             document.getElementById('streak-score').innerText = currentStreak;
-            document.getElementById('max-streak-score').innerText = maxStreak;
             document.getElementById('elephant-score').innerText = elephantCount;
-
-            // 更新愛心生命值顯示
-            let hearts = '';
-            for (let i = 0; i < MAX_LIVES; i++) {
-                hearts += i < lives ? '❤️' : '🖤';
+            
+            // 有答對紀錄時顯示「結束並登榜」按鈕
+            const finishBtn = document.getElementById('finish-btn');
+            if (isPlaying && totalCorrect > 0) {
+                finishBtn.classList.remove('hidden');
+            } else {
+                finishBtn.classList.add('hidden');
             }
-            document.getElementById('lives-display').innerText = hearts;
-
             updateButtonsUI();
         }
 
@@ -689,17 +625,11 @@
             const pauseBtn = document.getElementById('pause-btn');
             const hintBtn = document.getElementById('hint-btn');
             
-            if (isPlaying && elephantCount >= 1 && !isPaused) {
-                pauseBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            } else {
-                pauseBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            }
+            if (elephantCount >= 1 && !isPaused) pauseBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            else pauseBtn.classList.add('opacity-50', 'cursor-not-allowed');
             
-            if (isPlaying && elephantCount >= 2 && !isPaused) {
-                hintBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            } else {
-                hintBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            }
+            if (elephantCount >= 2 && !isPaused) hintBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            else hintBtn.classList.add('opacity-50', 'cursor-not-allowed');
         }
 
         function generateQuestion() {
@@ -742,7 +672,7 @@
                         } else { 
                             q.text = `_ - ${q.answer} = ${q.result}`; 
                             q.blankPos = 1; 
-                            q.answer = q.num1; 
+                            q.answer = q.num1;
                         }
                     }
                 }
@@ -769,8 +699,6 @@
         }
 
         function nextQuestion() {
-            if (!isPlaying) return;
-            isProcessingAnswer = false;
             currentQuestion = generateQuestion();
             currentInput = "";
             renderQuestionText();
@@ -786,18 +714,13 @@
             
             clearInterval(timer);
             timer = setInterval(() => {
-                if (!isPaused && isPlaying) {
+                if (!isPaused) {
                     timeLeft--;
                     let percentage = (timeLeft / maxTime) * 100;
-                    bar.style.width = Math.max(0, percentage) + '%';
+                    bar.style.width = percentage + '%';
                     
-                    if (percentage < 30) {
-                        bar.classList.remove('bg-green-500', 'bg-yellow-500');
-                        bar.classList.add('bg-red-500');
-                    } else if (percentage < 60) {
-                        bar.classList.remove('bg-green-500');
-                        bar.classList.add('bg-yellow-500');
-                    }
+                    if (percentage < 30) bar.classList.replace('bg-yellow-500', 'bg-red-500') || bar.classList.replace('bg-green-500', 'bg-red-500');
+                    else if (percentage < 60) bar.classList.replace('bg-green-500', 'bg-yellow-500');
 
                     if (timeLeft <= 0) {
                         clearInterval(timer);
@@ -808,69 +731,70 @@
         }
 
         function useHint() {
-            if (!isPlaying || elephantCount < 2 || isPaused || isProcessingAnswer) return;
-            let removed = 0;
-            for (let i = animalBodies.length - 1; i >= 0 && removed < 2; i--) {
-                if (animalBodies[i].isElephant) {
-                    Matter.World.remove(world, animalBodies[i]);
-                    animalBodies.splice(i, 1);
-                    elephantCount--;
-                    removed++;
+            if (elephantCount >= 2 && !isPaused) {
+                let removed = 0;
+                for (let i = animalBodies.length - 1; i >= 0 && removed < 2; i--) {
+                    if (animalBodies[i].isElephant) {
+                        Matter.World.remove(world, animalBodies[i]);
+                        animalBodies.splice(i, 1);
+                        elephantCount--;
+                        removed++;
+                    }
                 }
-            }
-            
-            updateScores();
-            isPaused = true; 
-            updateButtonsUI();
-            const bar = document.getElementById('time-bar');
-            bar.className = 'bg-blue-400 h-4 rounded-full transition-all duration-1000 ease-linear w-full';
+                
+                updateScores();
+                isPaused = true; 
+                const bar = document.getElementById('time-bar');
+                bar.className = 'bg-blue-400 h-4 rounded-full transition-all duration-1000 ease-linear w-full';
 
-            const hintBox = document.getElementById('hint-text');
-            let hintMsg = "";
-            let q = currentQuestion;
+                const hintBox = document.getElementById('hint-text');
+                let hintMsg = "";
+                let q = currentQuestion;
 
-            if (q.type === 'normal' && q.op === '+') {
-                if (q.num1 + q.num2 > 10 && q.num1 < 10 && q.num2 < 10) {
-                    let big = q.num1 >= q.num2 ? q.num1 : q.num2;
-                    let small = q.num1 >= q.num2 ? q.num2 : q.num1;
-                    let need = 10 - big;
-                    let remain = small - need;
-                    hintMsg = `💡 合十法：${big}加${need}是10，${small}可以分成${need}和${remain}。把10和${remain}加起來就是答案囉！`;
+                if (q.type === 'normal' && q.op === '+') {
+                    if (q.num1 + q.num2 > 10 && q.num1 < 10 && q.num2 < 10) {
+                        let big = q.num1 >= q.num2 ? q.num1 : q.num2;
+                        let small = q.num1 >= q.num2 ? q.num2 : q.num1;
+                        let need = 10 - big;
+                        let remain = small - need;
+                        hintMsg = `💡 合十法：${big}加${need}是10，${small}可以分成${need}和${remain}。把10和${remain}加起來就是答案囉！`;
+                    } else {
+                        hintMsg = "💡 試著用手指頭或心算把數字合起來。";
+                    }
+                } else if (q.type === 'normal' && q.op === '-') {
+                    if (q.num1 > 10 && q.num1 % 10 < q.num2) {
+                        let base = q.num1 % 10;
+                        hintMsg = `💡 破十法：${q.num1}可以分成10和${base}。先用10減${q.num2}等於${10-q.num2}，然後用${10-q.num2}加返${base}就係答案囉！`;
+                    } else {
+                        hintMsg = "💡 這是普通的減法，仔細算算看！";
+                    }
+                } else if (q.type === 'algebra') {
+                    if (q.op === '+') hintMsg = `💡 想一想：${q.num1} 要加上多少，才會變成 ${q.result} 呢？可以反過來用減法算算看喔。`;
+                    else hintMsg = `💡 推理題：誰減去 ${q.answer} 會變成 ${q.result}？ 或者是 ${q.num1} 減去多少會是 ${q.result}？`;
                 } else {
-                    hintMsg = "💡 試著用手指頭或心算把數字合起來。";
+                    hintMsg = "💡 連加連減題：可以先算前面兩個數字，得到結果後，再和第三個數字算一次！";
                 }
-            } else if (q.type === 'normal' && q.op === '-') {
-                if (q.num1 > 10 && q.num1 % 10 < q.num2) {
-                    let base = q.num1 % 10;
-                    hintMsg = `💡 破十法：${q.num1}可以分成10和${base}。先用10減${q.num2}等於${10-q.num2}，然後用${10-q.num2}加返${base}就係答案囉！`;
-                } else {
-                    hintMsg = "💡 這是普通的減法，仔細算算看！";
-                }
-            } else if (q.type === 'algebra') {
-                if (q.op === '+') hintMsg = `💡 想一想：${q.num1} 要加上多少，才會變成 ${q.result} 呢？可以反過來用減法算算看喔。`;
-                else hintMsg = `💡 推理題：誰減去 ${q.answer} 會變成 ${q.result}？ 或者是 ${q.num1} 減去多少會是 ${q.result}？`;
-            } else {
-                hintMsg = "💡 連加連減題：可以先算前面兩個數字，得到結果後，再和第三個數字算一次！";
-            }
 
-            hintBox.innerText = hintMsg;
-            hintBox.classList.remove('hidden');
+                hintBox.innerText = hintMsg;
+                hintBox.classList.remove('hidden');
+            }
         }
 
         function usePause() {
-            if (!isPlaying || elephantCount < 1 || isPaused || isProcessingAnswer) return;
-            for (let i = animalBodies.length - 1; i >= 0; i--) {
-                if (animalBodies[i].isElephant) {
-                    Matter.World.remove(world, animalBodies[i]);
-                    animalBodies.splice(i, 1);
-                    elephantCount--;
-                    break;
+            if (elephantCount >= 1 && !isPaused) {
+                for (let i = animalBodies.length - 1; i >= 0; i--) {
+                    if (animalBodies[i].isElephant) {
+                        Matter.World.remove(world, animalBodies[i]);
+                        animalBodies.splice(i, 1);
+                        elephantCount--;
+                        break;
+                    }
                 }
+                isPaused = true;
+                updateScores();
+                const bar = document.getElementById('time-bar');
+                bar.className = 'bg-blue-400 h-4 rounded-full transition-all duration-1000 ease-linear w-full';
             }
-            isPaused = true;
-            updateScores();
-            const bar = document.getElementById('time-bar');
-            bar.className = 'bg-blue-400 h-4 rounded-full transition-all duration-1000 ease-linear w-full';
         }
 
         function renderQuestionText() {
@@ -893,7 +817,7 @@
         }
 
         function inputNumber(num) {
-            if (!isPlaying || isProcessingAnswer) return;
+            if (!isPlaying) return;
             if (currentInput.length < 2) {
                 currentInput += num.toString();
                 renderQuestionText();
@@ -901,154 +825,67 @@
         }
 
         function clearInput() {
-            if (!isPlaying || isProcessingAnswer) return;
+            if (!isPlaying) return;
             currentInput = "";
             renderQuestionText();
         }
 
         function checkAnswer() {
-            if (!isPlaying || isProcessingAnswer || currentInput === "") return;
-            isProcessingAnswer = true;
+            if (!isPlaying || currentInput === "") return;
             clearInterval(timer);
             const playerAnswer = parseInt(currentInput, 10);
             
             if (playerAnswer === currentQuestion.answer) {
                 playCoinSound();
-                confetti({ particleCount: 90, spread: 70, origin: { y: 0.6 }, colors: ['#26ccff', '#a25afd', '#ff5e7e', '#88ff5a', '#fcff42', '#ffa62d'] });
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#26ccff', '#a25afd', '#ff5e7e', '#88ff5a', '#fcff42', '#ffa62d'] });
                 
                 totalCorrect++;
                 currentStreak++;
-                if (currentStreak > maxStreak) {
-                    maxStreak = currentStreak;
-                }
+                if (currentStreak > maxStreak) maxStreak = currentStreak;
                 updateScores();
                 addAnimal();
+
+                // 每達成 20 題倍數召喚獨角獸時，追加雙側彩帶慶祝
+                if (totalCorrect % 20 === 0) {
+                    confetti({ particleCount: 80, angle: 60, spread: 65, origin: { x: 0.1, y: 0.6 } });
+                    confetti({ particleCount: 80, angle: 120, spread: 65, origin: { x: 0.9, y: 0.6 } });
+                }
                 
-                setTimeout(nextQuestion, 1200);
+                setTimeout(nextQuestion, 1500);
             } else {
                 playErrorSound();
                 currentStreak = 0;
-                lives--;
                 updateScores();
-                removeLastAnimal();
                 
                 const qText = document.getElementById('question-text');
                 qText.classList.add('text-red-500', 'animate-shake');
+                removeLastAnimal();
                 
                 setTimeout(() => {
                     qText.classList.remove('text-red-500', 'animate-shake');
-                    if (lives <= 0) {
-                        endGame();
-                    } else {
-                        clearInput();
-                        nextQuestion();
-                    }
+                    clearInput();
+                    nextQuestion();
                 }, 1000);
             }
         }
 
         function handleTimeout() {
-            if (!isPlaying || isProcessingAnswer) return;
-            isProcessingAnswer = true;
             playErrorSound();
             currentStreak = 0;
-            lives--;
             updateScores();
             removeLastAnimal();
             
             const hintBox = document.getElementById('hint-text');
-            hintBox.innerText = `⏰ 時間到了！正確答案是 ${currentQuestion.answer}。`;
+            hintBox.innerText = "⏰ 哎呀！時間到了！再試一次吧！";
             hintBox.classList.remove('hidden');
             
-            setTimeout(() => {
-                if (lives <= 0) {
-                    endGame();
-                } else {
-                    nextQuestion();
-                }
-            }, 1500);
+            setTimeout(nextQuestion, 2000);
         }
 
-        // 手動結束遊戲兩段式按鈕（避免誤觸）
-        function triggerManualEnd() {
-            if (!isPlaying) return;
-            const btn = document.getElementById('end-game-btn');
-            if (!manualEndConfirmPending) {
-                manualEndConfirmPending = true;
-                btn.innerText = "⚠️ 確定結束？(再按一次)";
-                btn.classList.replace('bg-rose-500', 'bg-amber-600');
-                manualEndTimeout = setTimeout(resetManualEndButton, 3000);
-            } else {
-                resetManualEndButton();
-                endGame();
-            }
-        }
-
-        function resetManualEndButton() {
-            manualEndConfirmPending = false;
-            if (manualEndTimeout) clearTimeout(manualEndTimeout);
-            const btn = document.getElementById('end-game-btn');
-            btn.innerText = "🏁 結束並記錄";
-            btn.classList.remove('bg-amber-600');
-            btn.classList.add('bg-rose-500');
-        }
-
-        // 遊戲完結：停止計時、顯示成績與名稱輸入視窗
-        function endGame() {
-            isPlaying = false;
-            isProcessingAnswer = false;
-            clearInterval(timer);
-            document.getElementById('end-game-btn').classList.add('hidden');
-            updateButtonsUI();
-
-            playGameOverFanfare();
-
-            // 更新彈窗成績顯示
-            document.getElementById('final-correct').innerText = totalCorrect;
-            document.getElementById('final-max-streak').innerText = maxStreak;
-
-            // 根據表現切換徽章與標題
-            const badge = document.getElementById('gameover-badge');
-            const title = document.getElementById('gameover-title');
-            if (totalCorrect >= 20) {
-                badge.innerText = '🦄';
-                title.innerText = '傳奇獨角獸大師！';
-                confetti({ particleCount: 150, spread: 100, origin: { y: 0.5 } });
-            } else if (totalCorrect >= 10) {
-                badge.innerText = '🏆';
-                title.innerText = '超級數學小天才！';
-                confetti({ particleCount: 100, spread: 80, origin: { y: 0.5 } });
-            } else {
-                badge.innerText = '🎉';
-                title.innerText = '挑戰完結！';
-            }
-
-            // 檢查是否符合打入 Top 10 資格（只要大於 0 分且目前榜單不足 10 人或超越第 10 名）
-            const qualifies = checkIfQualifiesTop10(totalCorrect, maxStreak);
-            const congratsEl = document.getElementById('top10-congrats');
-            if (qualifies && (totalCorrect > 0 || maxStreak > 0)) {
-                congratsEl.classList.remove('hidden');
-            } else {
-                congratsEl.classList.add('hidden');
-            }
-
-            // 渲染最近使用過的玩家名稱快速按鈕
-            renderRecentNames();
-
-            // 顯示彈窗並自動聚焦名稱輸入框
-            document.getElementById('name-error-msg').classList.add('hidden');
-            const nameInput = document.getElementById('player-name-input');
-            nameInput.value = '';
-            document.getElementById('gameover-modal').classList.remove('hidden');
-            setTimeout(() => nameInput.focus(), 100);
-        }
-
-        // ==========================================
-        // 5. Top 10 龍虎榜儲存、排序與渲染邏輯
-        // ==========================================
+        // ================= 龍虎榜資料與互動邏輯 =================
         function getLeaderboardData() {
             try {
-                const raw = localStorage.getItem(STORAGE_KEY);
+                const raw = localStorage.getItem(LEADERBOARD_STORAGE_KEY);
                 return raw ? JSON.parse(raw) : [];
             } catch (e) {
                 return [];
@@ -1057,282 +894,207 @@
 
         function saveLeaderboardData(records) {
             try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+                localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(records));
             } catch (e) {
-                console.error('無法儲存龍虎榜資料:', e);
+                console.error('儲存龍虎榜失敗:', e);
             }
         }
 
-        // 依指定模式排序並截取前 10 名
-        function getSortedTop10(records, mode = 'total') {
-            const copy = [...records];
-            copy.sort((a, b) => {
-                if (mode === 'streak') {
-                    // 最高連對優先，若相同則比總答對，再相同則比時間較早
-                    if (b.maxStreak !== a.maxStreak) return b.maxStreak - a.maxStreak;
-                    if (b.totalCorrect !== a.totalCorrect) return b.totalCorrect - a.totalCorrect;
-                    return a.timestamp - b.timestamp;
-                } else {
-                    // 總答對優先，若相同則比最高連對，再相同則比時間較早
-                    if (b.totalCorrect !== a.totalCorrect) return b.totalCorrect - a.totalCorrect;
-                    if (b.maxStreak !== a.maxStreak) return b.maxStreak - a.maxStreak;
-                    return a.timestamp - b.timestamp;
-                }
-            });
-            return copy.slice(0, 10);
+        function openSubmitModal() {
+            isPaused = true;
+            document.getElementById('summary-correct').innerText = totalCorrect;
+            document.getElementById('summary-max-streak').innerText = maxStreak;
+            document.getElementById('player-name-input').value = '';
+            document.getElementById('submit-modal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('player-name-input').focus(), 100);
         }
 
-        function checkIfQualifiesTop10(scoreTotal, scoreStreak) {
-            const records = getLeaderboardData();
-            const topTotal = getSortedTop10(records, 'total');
-            const topStreak = getSortedTop10(records, 'streak');
-
-            const inTotal = topTotal.length < 10 || scoreTotal > topTotal[topTotal.length - 1].totalCorrect;
-            const inStreak = topStreak.length < 10 || scoreStreak > topStreak[topStreak.length - 1].maxStreak;
-            return inTotal || inStreak;
-        }
-
-        function renderRecentNames() {
-            const records = getLeaderboardData();
-            const container = document.getElementById('recent-names-container');
-            const list = document.getElementById('recent-names-list');
-            
-            // 取得不重複的最近 5 個玩家名稱
-            const uniqueNames = [];
-            for (let i = records.length - 1; i >= 0; i--) {
-                if (!uniqueNames.includes(records[i].name)) {
-                    uniqueNames.push(records[i].name);
-                }
-                if (uniqueNames.length >= 5) break;
-            }
-
-            if (uniqueNames.length === 0) {
-                container.classList.add('hidden');
-                return;
-            }
-
-            list.innerHTML = '';
-            uniqueNames.forEach(name => {
-                const chip = document.createElement('button');
-                chip.type = 'button';
-                chip.className = 'text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-full transition-all';
-                chip.innerText = name;
-                chip.onclick = () => {
-                    document.getElementById('player-name-input').value = name;
-                    document.getElementById('name-error-msg').classList.add('hidden');
-                };
-                list.appendChild(chip);
-            });
-            container.classList.remove('hidden');
-        }
-
-        function handleNameInputKey(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                savePlayerRecord();
+        function closeSubmitModal() {
+            document.getElementById('submit-modal').classList.add('hidden');
+            if (isPlaying) {
+                isPaused = false;
             }
         }
 
-        function savePlayerRecord() {
-            const inputEl = document.getElementById('player-name-input');
-            const name = inputEl.value.trim();
-
-            if (!name) {
-                document.getElementById('name-error-msg').classList.remove('hidden');
-                inputEl.classList.add('animate-shake', 'border-rose-400');
-                setTimeout(() => inputEl.classList.remove('animate-shake'), 400);
-                inputEl.focus();
-                return;
-            }
-
+        function saveScoreToLeaderboard() {
+            const nameInput = document.getElementById('player-name-input').value.trim();
+            const playerName = nameInput || '無名小數學家';
             const now = new Date();
-            const dateStr = `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-            const recordId = Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            const dateStr = `${now.getMonth() + 1}/${now.getDate()}`;
 
-            const newRecord = {
-                id: recordId,
-                name: name,
+            const records = getLeaderboardData();
+            records.push({
+                id: Date.now(),
+                name: playerName,
                 totalCorrect: totalCorrect,
                 maxStreak: maxStreak,
-                date: dateStr,
-                timestamp: Date.now()
-            };
+                date: dateStr
+            });
 
-            const records = getLeaderboardData();
-            records.push(newRecord);
+            // 最多保留前 50 筆以應對兩種排序切換（顯示 Top 10）
+            records.sort((a, b) => (b.totalCorrect - a.totalCorrect) || (b.maxStreak - a.maxStreak));
+            saveLeaderboardData(records.slice(0, 50));
 
-            // 保留所有曾進入任一榜單前 10 名的紀錄，避免 localStorage 無限膨脹
-            const topTotalIds = new Set(getSortedTop10(records, 'total').map(r => r.id));
-            const topStreakIds = new Set(getSortedTop10(records, 'streak').map(r => r.id));
-            const trimmedRecords = records.filter(r => topTotalIds.has(r.id) || topStreakIds.has(r.id));
-
-            saveLeaderboardData(trimmedRecords);
-            lastSavedRecordId = recordId;
-
-            // 關閉結束視窗，顯示遊戲開始覆蓋層並開啟龍虎榜
-            document.getElementById('gameover-modal').classList.add('hidden');
+            // 結束當前局數並顯示開始覆蓋層
+            clearInterval(timer);
+            isPlaying = false;
+            document.getElementById('finish-btn').classList.add('hidden');
             document.getElementById('game-overlay').classList.remove('hidden');
+            document.getElementById('submit-modal').classList.add('hidden');
+
             openLeaderboard();
         }
 
-        function skipAndRestart() {
-            document.getElementById('gameover-modal').classList.add('hidden');
-            startGame();
-        }
-
-        // 開啟龍虎榜（若遊戲進行中會自動暫停計時）
         function openLeaderboard() {
-            if (isPlaying && !isPaused) {
-                isPaused = true;
-                pausedByModal = true;
-            }
-            renderLeaderboardTable();
+            if (isPlaying) isPaused = true;
+            resetTrophyClickCounter();
+            document.getElementById('clear-confirm-overlay').classList.add('hidden');
+            document.getElementById('leaderboard-toast').classList.add('hidden');
+            renderLeaderboard();
             document.getElementById('leaderboard-modal').classList.remove('hidden');
         }
 
         function closeLeaderboard() {
+            resetTrophyClickCounter();
             document.getElementById('leaderboard-modal').classList.add('hidden');
-            resetClearButtonState();
-            if (isPlaying && pausedByModal) {
+            if (isPlaying && document.getElementById('submit-modal').classList.contains('hidden')) {
                 isPaused = false;
-                pausedByModal = false;
             }
         }
 
-        function switchLeaderboardSort(mode) {
-            currentSortMode = mode;
+        function startNewGameFromLeaderboard() {
+            closeLeaderboard();
+            startGame();
+        }
+
+        function setLeaderboardSort(mode) {
+            leaderboardSortMode = mode;
             const totalBtn = document.getElementById('sort-total-btn');
             const streakBtn = document.getElementById('sort-streak-btn');
 
             if (mode === 'total') {
-                totalBtn.className = 'py-2 px-3 rounded-lg text-xs sm:text-sm font-black bg-white text-blue-600 shadow transition-all';
-                streakBtn.className = 'py-2 px-3 rounded-lg text-xs sm:text-sm font-black text-slate-500 hover:text-slate-700 transition-all';
+                totalBtn.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all bg-white text-blue-600 shadow-sm flex items-center justify-center gap-1.5';
+                streakBtn.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-500 hover:text-slate-700 flex items-center justify-center gap-1.5';
             } else {
-                streakBtn.className = 'py-2 px-3 rounded-lg text-xs sm:text-sm font-black bg-white text-orange-600 shadow transition-all';
-                totalBtn.className = 'py-2 px-3 rounded-lg text-xs sm:text-sm font-black text-slate-500 hover:text-slate-700 transition-all';
+                streakBtn.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all bg-white text-blue-600 shadow-sm flex items-center justify-center gap-1.5';
+                totalBtn.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-500 hover:text-slate-700 flex items-center justify-center gap-1.5';
             }
-
-            renderLeaderboardTable();
+            renderLeaderboard();
         }
 
-        function renderLeaderboardTable() {
-            const tbody = document.getElementById('leaderboard-tbody');
+        function renderLeaderboard() {
+            const listContainer = document.getElementById('leaderboard-list');
             const records = getLeaderboardData();
-            const top10 = getSortedTop10(records, currentSortMode);
 
-            tbody.innerHTML = '';
-
-            if (top10.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="py-12 text-center text-slate-400">
-                            <div class="text-4xl mb-2">🌱</div>
-                            <div class="font-bold text-base">龍虎榜暫時未有紀錄</div>
-                            <div class="text-xs mt-1">完成一局遊戲並輸入名字，即可登上榜首！</div>
-                        </td>
-                    </tr>
+            if (records.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="flex-1 flex flex-col items-center justify-center py-12 text-center">
+                        <div class="text-5xl mb-3">🌱</div>
+                        <div class="text-lg font-black text-slate-400 mb-1">龍虎榜暫時未有紀錄</div>
+                        <div class="text-xs sm:text-sm text-slate-400">完成一局遊戲並輸入名字，即可登上榜首！</div>
+                    </div>
                 `;
                 return;
             }
 
-            top10.forEach((item, index) => {
-                const rank = index + 1;
-                let rankBadge = `<span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-600 text-xs font-black">${rank}</span>`;
+            const sorted = [...records].sort((a, b) => {
+                if (leaderboardSortMode === 'total') {
+                    return (b.totalCorrect - a.totalCorrect) || (b.maxStreak - a.maxStreak);
+                } else {
+                    return (b.maxStreak - a.maxStreak) || (b.totalCorrect - a.totalCorrect);
+                }
+            }).slice(0, 10);
+
+            listContainer.innerHTML = sorted.map((item, idx) => {
+                const rank = idx + 1;
+                let rankBadge = `<span class="font-bold text-slate-500">${rank}</span>`;
                 let rowBg = 'hover:bg-slate-50';
+                if (rank === 1) { rankBadge = '<span class="text-xl">🥇</span>'; rowBg = 'bg-amber-50/70'; }
+                else if (rank === 2) { rankBadge = '<span class="text-xl">🥈</span>'; rowBg = 'bg-slate-50/80'; }
+                else if (rank === 3) { rankBadge = '<span class="text-xl">🥉</span>'; rowBg = 'bg-orange-50/50'; }
 
-                if (rank === 1) {
-                    rankBadge = '<span class="text-2xl">🥇</span>';
-                    rowBg = 'bg-amber-50/70 hover:bg-amber-50';
-                } else if (rank === 2) {
-                    rankBadge = '<span class="text-2xl">🥈</span>';
-                    rowBg = 'bg-slate-50/80 hover:bg-slate-100/80';
-                } else if (rank === 3) {
-                    rankBadge = '<span class="text-2xl">🥉</span>';
-                    rowBg = 'bg-orange-50/50 hover:bg-orange-50';
-                }
-
-                const isNew = item.id === lastSavedRecordId;
-                if (isNew) {
-                    rowBg += ' ring-2 ring-inset ring-green-400 bg-green-50/60';
-                }
-
-                const tr = document.createElement('tr');
-                tr.className = `${rowBg} transition-colors`;
-                tr.innerHTML = `
-                    <td class="py-2.5 px-2 text-center">${rankBadge}</td>
-                    <td class="py-2.5 px-2 text-slate-800">
-                        <div class="flex items-center gap-1.5">
-                            <span class="truncate max-w-[120px] sm:max-w-[160px]">${escapeHTML(item.name)}</span>
-                            ${isNew ? '<span class="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded-full font-black">NEW</span>' : ''}
-                        </div>
-                    </td>
-                    <td class="py-2.5 px-2 text-center ${currentSortMode === 'total' ? 'text-blue-600 text-lg font-black' : 'text-slate-600'}">
-                        ${item.totalCorrect}
-                    </td>
-                    <td class="py-2.5 px-2 text-center ${currentSortMode === 'streak' ? 'text-orange-600 text-lg font-black' : 'text-slate-600'}">
-                        ${item.maxStreak}
-                    </td>
-                    <td class="py-2.5 px-2 text-right text-xs text-slate-400 hidden sm:table-cell">
-                        ${item.date || ''}
-                    </td>
+                return `
+                    <div class="grid grid-cols-12 items-center py-2.5 px-2 border-b border-slate-50 text-sm sm:text-base ${rowBg} rounded-lg">
+                        <div class="col-span-2 text-center">${rankBadge}</div>
+                        <div class="col-span-4 font-bold text-slate-700 truncate pr-2">${escapeHtml(item.name)}</div>
+                        <div class="col-span-2 text-center font-black text-blue-600">${item.totalCorrect}</div>
+                        <div class="col-span-2 text-center font-black text-amber-500">${item.maxStreak}</div>
+                        <div class="col-span-2 text-right text-xs text-slate-400 font-medium">${escapeHtml(item.date)}</div>
+                    </div>
                 `;
-                tbody.appendChild(tr);
-            });
+            }).join('');
         }
 
-        // 兩段式清除排行榜（不使用原生 confirm()）
-        function handleClearLeaderboard() {
-            const btn = document.getElementById('clear-board-btn');
-            if (!clearConfirmPending) {
-                clearConfirmPending = true;
-                btn.innerText = "⚠️ 再按一次確認清除全部紀錄";
-                btn.classList.add('bg-rose-100', 'font-black');
-                clearConfirmTimeout = setTimeout(resetClearButtonState, 3500);
-            } else {
-                localStorage.removeItem(STORAGE_KEY);
-                lastSavedRecordId = null;
-                resetClearButtonState();
-                renderLeaderboardTable();
+        // ================= 連續點按獎盃圖案 10 次清除排行榜 =================
+        function handleTrophySecretClick() {
+            const trophyBtn = document.getElementById('secret-trophy-btn');
+            const tapHint = document.getElementById('trophy-tap-hint');
+
+            // 觸發微動畫與輕快音效
+            trophyBtn.classList.remove('trophy-pop');
+            void trophyBtn.offsetWidth; // 強制重繪以重新播放動畫
+            trophyBtn.classList.add('trophy-pop');
+
+            trophyClickCount++;
+            playTapTickSound(trophyClickCount);
+
+            // 若超過 2.5 秒沒有繼續連續點擊，自動重置計數
+            clearTimeout(trophyResetTimeout);
+            trophyResetTimeout = setTimeout(() => {
+                resetTrophyClickCounter();
+            }, 2500);
+
+            if (trophyClickCount >= 5 && trophyClickCount < 10) {
+                tapHint.innerText = `再按 ${10 - trophyClickCount} 次...`;
+                tapHint.classList.remove('hidden');
+            } else if (trophyClickCount >= 10) {
+                resetTrophyClickCounter();
+                // 顯示自訂確認面板（取代瀏覽器原生 confirm）
+                document.getElementById('clear-confirm-overlay').classList.remove('hidden');
             }
         }
 
-        function resetClearButtonState() {
-            clearConfirmPending = false;
-            if (clearConfirmTimeout) clearTimeout(clearConfirmTimeout);
-            const btn = document.getElementById('clear-board-btn');
-            btn.innerText = "🗑️ 清除排行榜";
-            btn.classList.remove('bg-rose-100', 'font-black');
+        function resetTrophyClickCounter() {
+            trophyClickCount = 0;
+            clearTimeout(trophyResetTimeout);
+            const tapHint = document.getElementById('trophy-tap-hint');
+            if (tapHint) tapHint.classList.add('hidden');
         }
 
-        function escapeHTML(str) {
-            return str.replace(/[&<>"']/g, function(m) {
-                return ({
-                    '&': '&amp;',
-                    '<': '&lt;',
-                    '>': '&gt;',
-                    '"': '&quot;',
-                    "'": '&#39;'
-                })[m];
-            });
+        function cancelClearLeaderboard() {
+            document.getElementById('clear-confirm-overlay').classList.add('hidden');
         }
 
-        // ==========================================
-        // 6. 實體鍵盤支援（隔離名稱輸入框避免衝突）
-        // ==========================================
+        function confirmClearLeaderboard() {
+            saveLeaderboardData([]);
+            document.getElementById('clear-confirm-overlay').classList.add('hidden');
+            renderLeaderboard();
+
+            const toast = document.getElementById('leaderboard-toast');
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // 鍵盤支援（避免在輸入名字時誤觸作答按鍵）
         document.addEventListener('keydown', (e) => {
-            // 若玩家正在名稱輸入框打字，不觸發遊戲數字鍵盤操作
-            if (document.activeElement && document.activeElement.id === 'player-name-input') {
+            if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+                if (e.key === 'Enter') saveScoreToLeaderboard();
                 return;
             }
-            if (!isPlaying || isProcessingAnswer) return;
-
-            if (e.key >= '0' && e.key <= '9') {
-                inputNumber(e.key);
-            } else if (e.key === 'Backspace') {
-                clearInput();
-            } else if (e.key === 'Enter') {
-                checkAnswer();
-            }
+            if (e.key >= '0' && e.key <= '9') inputNumber(e.key);
+            else if (e.key === 'Backspace') clearInput();
+            else if (e.key === 'Enter') checkAnswer();
         });
     </script>
 </body>
